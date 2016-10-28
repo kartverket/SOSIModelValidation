@@ -16,6 +16,7 @@
 '	/krav/3:  
 '			Find elements (classes, attributes, navigable association roles, operations, datatypes)  
 '	        without definition (notes/rolenotes) in the selected package and subpackages 
+' denne linjen er ny fra Magnus sin branch (ingen konflikt her)
 '
 '	/krav/6:		
 '			Iso 19103 Requirement 6 - NCNames in codelist codes.
@@ -73,7 +74,7 @@
 '			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25 
 '
 ' 
-' Project Browser Script main function 
+' Project Script main function (fjernet ordet browser - her er det en konflikt)
 ' 
  sub OnProjectBrowserScript() 
  	 
