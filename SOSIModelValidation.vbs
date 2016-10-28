@@ -30,6 +30,7 @@
 '			If datatypes have associations then the datatype shall only be target in a composition 
 '  	/krav/14:
 '			Iso 19103 Requirement 14 -inherit from same stereotypes
+' Ny linje fra Tore sin branch (ingen konflikt her)
 '  	/krav/15:
 '			Iso 19103 Requirement 15 -known stereotypes
 '  	/krav/16
@@ -74,7 +75,9 @@
 '			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25 
 '
 ' 
-' Project Script main function (fjernet ordet browser - her er det en konflikt)
+
+' Project Browser Script main (tore)
+
 ' 
  sub OnProjectBrowserScript() 
  	 
