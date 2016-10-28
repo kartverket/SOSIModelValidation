@@ -73,7 +73,7 @@
 '			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25 
 '
 ' 
-' Project Browser Script main function 
+' Project Brwoser Script main function 
 ' 
  sub OnProjectBrowserScript() 
  	 
