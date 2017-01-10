@@ -1925,6 +1925,86 @@ sub recListDiagramObjects(p)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkEndingOfPackageName
+' Author: Sara Henriksen, Åsmund Tjora	
+' Purpose: check if the package name ends with a version number. The version number could be a date or a serial number. Returns an error if the version 
+' number contains anything other than 0-2 dots or numbers. 
+' Packages under development should have the text "Utkast" as the final element, after the version number. 
+' Date: 25.08.16 (original version) 09.01.17 (Updated version)
+sub checkEndingOfPackageName(thePackage)
+	'find the last part of the package name, after "-" 
+	dim startContent, endContent, stringContent, tailContent, cleanContent 	
+	
+	endContent = len(thePackage.Name)
+	
+	'Check last 6 characters in package name.  These should be ignored if they are "Utkast"
+	'The cleanContent variable be the same as thePackage.Name without the "Utkast" part. 
+	tailContent=right(thePackage.Name, endContent-6)
+	if UCase(tailContent)="Utkast" then cleanContent=right(thePackage.Name, endContent-6) else cleanContent=thePackage.Name
+	
+	'DEBUG CODE START
+	Session.Output("Debug:  tailContent= "&tailContent&", cleanContent= "&cleanContent&". Gatchabaguusu!")
+	'DEBUG CODE END
+	
+	startContent = InStr(cleanContent, "-") 
+	
+	stringContent = right(cleanContent, startContent+1) 
+	dim versionNumberInPackageName
+	versionNumberInPackageName = false 
+	'count number of dots, only allowed to use max two. 
+	dim dotCounter
+	dotCounter = 0
+
+	'check that the package name contains a "-", and thats it is just number(s) and "." after. 
+	if InStr(thePackage.Name, "-") then 			
+'		'if the string is numeric or it has dots, set the valueOk true 
+		if  InStr(stringContent, ".")  or IsNumeric(stringContent)  then
+				versionNumberInPackageName = true 
+				dim i, tegn 
+				for i = 1 to len(stringContent) 
+					tegn = Mid(stringContent,i,1)
+					if tegn = "." then
+						dotCounter = dotCounter  + 1 
+					end if 
+				next 
+				'count number of dots. If it's more than 2 return an error. 
+				if dotCounter < 3 then 
+					versionNumberInPackageName = true
+				else 
+					'Session.Output("for mange punktum")
+					versionNumberInPackageName = false
+				end if
+		end if 
+	end if 
+
+	'check the string for letters and symbols. If the package name contains one of the following, then return an error. 
+	if inStr(UCase(stringContent), "A") or inStr(UCase(stringContent), "B") or inStr(UCase(stringContent), "C") or inStr(UCase(stringContent), "D") or inStr(UCase(stringContent), "E") or inStr(UCase(stringContent), "F") or inStr(UCase(stringContent), "G") or inStr(UCase(stringContent), "H") or inStr(UCase(stringContent), "I") or inStr(UCase(stringContent), "J") or inStr(UCase(stringContent), "K") or inStr(UCase(stringContent), "L")  then 
+		versionNumberInPackageName = false
+	end if 	
+	if inStr(UCase(stringContent), "M") or inStr(UCase(stringContent), "N") or inStr(UCase(stringContent), "O") or inStr(UCase(stringContent), "P") or inStr(UCase(stringContent), "Q") or inStr(UCase(stringContent), "R") or inStr(UCase(stringContent), "S") or inStr(UCase(stringContent), "T") or inStr(UCase(stringContent), "U") or inStr(UCase(stringContent), "V") or inStr(UCase(stringContent), "W") or inStr(UCase(stringContent), "X") then          
+		versionNumberInPackageName = false
+	end if 
+	if inStr(UCase(stringContent), "Y") or inStr(UCase(stringContent), "Z") or inStr(UCase(stringContent), "Æ") or inStr(UCase(stringContent), "Ø") or inStr(UCase(stringContent), "Å") then 
+		versionNumberInPackageName = false
+	end if 
+	if inStr(stringContent, ",") or inStr(stringContent, "!") or inStr(stringContent, "@") or inStr(stringContent, "%") or inStr(stringContent, "&") or inStr(stringContent, """") or inStr(stringContent, "#") or inStr(stringContent, "$") or inStr(stringContent, "'") or inStr(stringContent, "(") or inStr(stringContent, ")") or inStr(stringContent, "*") or inStr(stringContent, "+") or inStr(stringContent, "/") then        
+		versionNumberInPackageName = false
+	end if
+	if inStr(stringContent, ":") or inStr(stringContent, ";") or inStr(stringContent, ">") or inStr(stringContent, "<") or inStr(stringContent, "=") then
+		versionNumberInPackageName = false
+	end if 
+	
+	if versionNumberInPackageName = false  then  
+		Session.Output("Error: Package ["&thePackage.Name&"] does not have a name ending with a version number. [/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer]")
+		globalErrorCounter = globalErrorCounter + 1	
+	end if 
+	
+end sub 
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 sub FindInvalidElementsInPackage(package) 
@@ -1948,6 +2028,8 @@ sub FindInvalidElementsInPackage(package)
 		end if	
 	end if
 
+	call checkEndingOfPackageName(package)
+	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
 		Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"].    [/krav/16 ]")				
@@ -2365,6 +2447,12 @@ sub FindInvalidElementsInPackage(package)
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+ 
+ 
+ 
+ 
+ 
+ 
  
 'global variables 
 dim globalLogLevelIsWarning 'boolean variable indicating if warning log level has been choosen or not
