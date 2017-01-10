@@ -59,6 +59,8 @@
 '			classes and associations start with upper case 
 '	/krav/SOSI-modellregister/ applikasjonsskjema/status
 '			Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value
+'   /krav/SOSI-modellregister/ applikasjonsskjema/versjonsnummer
+'            Check if the last part of the package name is a version number.  Ignore the text "Utkast" for this check
 '  	/req/UML/constraint
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
@@ -1931,25 +1933,19 @@ end sub
 ' Purpose: check if the package name ends with a version number. The version number could be a date or a serial number. Returns an error if the version 
 ' number contains anything other than 0-2 dots or numbers. 
 ' Packages under development should have the text "Utkast" as the final element, after the version number. 
-' Date: 25.08.16 (original version) 09.01.17 (Updated version)
+' Date: 25.08.16 (original version) 10.01.17 (Updated version)
 sub checkEndingOfPackageName(thePackage)
 	'find the last part of the package name, after "-" 
-	dim startContent, endContent, stringContent, tailContent, cleanContent 	
+	dim startContent, endContent, stringContent, cleanContent 	
 	
-	endContent = len(thePackage.Name)
+	'remove any "Utkast" part of the name 
+	cleanContent=replace(UCase(thePackage.Name), "UTKAST", "")
 	
-	'Check last 6 characters in package name.  These should be ignored if they are "Utkast"
-	'The cleanContent variable be the same as thePackage.Name without the "Utkast" part. 
-	tailContent=right(thePackage.Name, endContent-6)
-	if UCase(tailContent)="Utkast" then cleanContent=right(thePackage.Name, endContent-6) else cleanContent=thePackage.Name
-	
-	'DEBUG CODE START
-	Session.Output("Debug:  tailContent= "&tailContent&", cleanContent= "&cleanContent&". Gatchabaguusu!")
-	'DEBUG CODE END
-	
+	endContent = len(cleanContent)
+
 	startContent = InStr(cleanContent, "-") 
 	
-	stringContent = right(cleanContent, startContent+1) 
+	stringContent = mid(cleanContent, startContent+1, endContent) 	
 	dim versionNumberInPackageName
 	versionNumberInPackageName = false 
 	'count number of dots, only allowed to use max two. 
