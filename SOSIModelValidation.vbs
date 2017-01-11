@@ -56,6 +56,8 @@
 ' 			in the name after "Hoveddiagram". If there is several "Hoveddiagram"s and one or more diagrams just named "Hoveddiagram" it returns an error. 
 '  	/krav/hoveddiagram/navning: 
 '			Check if an application-schema has less than one diagram named "Hoveddiagram", if so, returns an error 
+' 	/krav/oversiktsdiagram:
+'			Check that a package with more than one diagram with name starting with "Hoveddiagram" also has at least one diagram called "Oversiktsdiagram" 
 '	/krav/navning (partially): 
 '			Check if names of attributes, operations, roles start with lower case and names of packages,  
 '			classes and associations start with upper case 
@@ -1054,6 +1056,44 @@ sub FindHoveddiagramsInAS(package)
 			numberOfHoveddiagramWithAdditionalInformationInTheName = numberOfHoveddiagramWithAdditionalInformationInTheName + 1 
 		end if	 
 	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: CheckOversiktsdiagram
+' Author: Åsmund Tjora (based on FindHoveddiagramsInAS by Sara Henriksen)
+' Date: 11.01.17
+' Purpose: check if the applicationSchema-package has more than one diagram with a name starting with "Hoveddiagram", if so, check that there also is a
+' diagram starting with "Oversiktsdiagram"
+' /krav/oversiktsdiagram 
+'@param[in]: package (EA.package) The package potentially containing diagrams with the provided name
+
+sub CheckOversiktsdiagram(package)
+	
+	dim diagrams as EA.Collection
+	set diagrams = package.Diagrams
+	dim noHoveddiagram
+	dim noOversiktsdiagram
+	
+	noHoveddiagram = 0
+	noOversiktsdiagram = 0
+
+	'find all diagrams in the package 
+	dim i
+	for i = 0 to diagrams.Count - 1
+		dim currentDiagram as EA.Diagram
+		set currentDiagram = diagrams.GetAt( i )
+		if UCase(Mid(currentDiagram.Name,1,12)) = "HOVEDDIAGRAM" then 
+			noHoveddiagram = noHoveddiagram + 1 
+		end if	 
+		if UCase(Mid(currentDiagram.Name,1,16)) = "OVERSIKTSDIAGRAM" then
+			noOversiktsdiagram = noOversiktsdiagram + 1
+		end if	 
+	next
+	if  ((noHoveddiagram > 1) and (noOversiktsdiagram = 0)) then
+		session.output("Error: Package [" & package.Name & "] has more than one diagram with names starting with Hoveddiagram, but no diagram with name starting with Oversiktsdiagram. [/krav/oversiktsdiagram]")
+		globalErrorCounter = globalErrorCounter + 1 		
+	end if
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2185,6 +2225,7 @@ sub FindInvalidElementsInPackage(package)
 	end if 
 	'iterate the diagrams in the package and count those named "Hoveddiagram" [/krav/hoveddiagram/detaljering/navning]
 	Call FindHoveddiagramsInAS(package)
+	call CheckOversiktsdiagram(package)
 					
 	'check packages' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide] 	
 	call checkStereotypes(package)		 
@@ -2530,13 +2571,7 @@ sub FindInvalidElementsInPackage(package)
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
- 
- 
- 
- 
- 
- 
- 
+
 'global variables 
 dim globalLogLevelIsWarning 'boolean variable indicating if warning log level has been choosen or not
 globalLogLevelIsWarning = true 'default setting for warning log level is true
