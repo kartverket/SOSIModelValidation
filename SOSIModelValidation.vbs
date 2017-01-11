@@ -56,13 +56,17 @@
 ' 			in the name after "Hoveddiagram". If there is several "Hoveddiagram"s and one or more diagrams just named "Hoveddiagram" it returns an error. 
 '  	/krav/hoveddiagram/navning: 
 '			Check if an application-schema has less than one diagram named "Hoveddiagram", if so, returns an error 
+' 	/krav/oversiktsdiagram:
+'			Check that a package with more than one diagram with name starting with "Hoveddiagram" also has at least one diagram called "Oversiktsdiagram" 
 '	/krav/navning (partially): 
 '			Check if names of attributes, operations, roles start with lower case and names of packages,  
 '			classes and associations start with upper case 
 '	/krav/SOSI-modellregister/ applikasjonsskjema/status
 '			Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value
 '   /krav/SOSI-modellregister/ applikasjonsskjema/versjonsnummer
-'            Check if the last part of the package name is a version number.  Ignore the text "Utkast" for this check
+'           Check if the last part of the package name is a version number.  Ignore the text "Utkast" for this check
+'   /krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast
+'			Check if packages with SOSI_modellstatus tag "utkast" has "Utkast" in package name. Also do the reverse check.
 '  	/req/UML/constraint
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
@@ -1059,6 +1063,44 @@ sub FindHoveddiagramsInAS(package)
 			numberOfHoveddiagramWithAdditionalInformationInTheName = numberOfHoveddiagramWithAdditionalInformationInTheName + 1 
 		end if	 
 	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: CheckOversiktsdiagram
+' Author: Åsmund Tjora (based on FindHoveddiagramsInAS by Sara Henriksen)
+' Date: 11.01.17
+' Purpose: check if the applicationSchema-package has more than one diagram with a name starting with "Hoveddiagram", if so, check that there also is a
+' diagram starting with "Oversiktsdiagram"
+' /krav/oversiktsdiagram 
+'@param[in]: package (EA.package) The package potentially containing diagrams with the provided name
+
+sub CheckOversiktsdiagram(package)
+	
+	dim diagrams as EA.Collection
+	set diagrams = package.Diagrams
+	dim noHoveddiagram
+	dim noOversiktsdiagram
+	
+	noHoveddiagram = 0
+	noOversiktsdiagram = 0
+
+	'find all diagrams in the package 
+	dim i
+	for i = 0 to diagrams.Count - 1
+		dim currentDiagram as EA.Diagram
+		set currentDiagram = diagrams.GetAt( i )
+		if UCase(Mid(currentDiagram.Name,1,12)) = "HOVEDDIAGRAM" then 
+			noHoveddiagram = noHoveddiagram + 1 
+		end if	 
+		if UCase(Mid(currentDiagram.Name,1,16)) = "OVERSIKTSDIAGRAM" then
+			noOversiktsdiagram = noOversiktsdiagram + 1
+		end if	 
+	next
+	if  ((noHoveddiagram > 1) and (noOversiktsdiagram = 0)) then
+		session.output("Error: Package [" & package.Name & "] has more than one diagram with names starting with Hoveddiagram, but no diagram with name starting with Oversiktsdiagram. [/krav/oversiktsdiagram]")
+		globalErrorCounter = globalErrorCounter + 1 		
+	end if
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2196,6 +2238,44 @@ sub checkUniqueFeatureTypeNames()
  end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+' Script Name: checkUtkast
+' Author: Åsmund Tjora	
+' Purpose: check that packages with "Utkast" as part of the package name also has "Utkast" as SOSI_modellstatus tag and that package with the "Utkast"
+' SOSI_modellstatus tag also has "Utkast" as part of the name. 
+' Date: 10.01.17 
+sub checkUtkast(thePackage)
+	dim utkastInName, utkastInTag
+	'check if "Utkast" is part of the name
+	if (len(thePackage.Name)=len(replace(UCase(thePackage.Name),"UTKAST",""))) then utkastInName=false else utkastInName=true
+	'check if "utkast" is part of the SOSI_modellstatus tag
+	dim taggedValuesCounter
+	dim SOSI_modellstatusTag
+	dim currentExistingTaggedValue
+	SOSI_modellstatusTag = "Missing Tag"
+	utkastInTag=false
+	for taggedValuesCounter = 0 to thePackage.Element.TaggedValues.Count - 1
+		set currentExistingTaggedValue = thePackage.Element.TaggedValues.GetAt(taggedValuesCounter)			
+		if currentExistingTaggedValue.Name = "SOSI_modellstatus" then
+			if currentExistingTaggedValue.Value = "utkast" then utkastInTag=true
+			SOSI_modellstatusTag=currentExistingTaggedValue.Value
+		end if
+	next
+	
+	if (utkastInName=true and utkastInTag=false) then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has the value "&SOSI_modellstatusTag&" [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		globalErrorCounter = globalErrorCounter + 1 
+	end if 
+
+	if (utkastInName=false and utkastInTag=true) then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has [SOSI_modellstatus] tag with utkast value, but Utkast is not part of the package name [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		globalErrorCounter = globalErrorCounter + 1 
+	end if 
+end sub
+
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2221,6 +2301,7 @@ sub FindInvalidElementsInPackage(package)
 	end if
 
 	call checkEndingOfPackageName(package)
+	call checkUtkast(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
@@ -2250,6 +2331,7 @@ sub FindInvalidElementsInPackage(package)
 	end if 
 	'iterate the diagrams in the package and count those named "Hoveddiagram" [/krav/hoveddiagram/detaljering/navning]
 	Call FindHoveddiagramsInAS(package)
+	call CheckOversiktsdiagram(package)
 					
 	'check packages' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide] 	
 	call checkStereotypes(package)		 
@@ -2601,13 +2683,7 @@ sub FindInvalidElementsInPackage(package)
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
- 
- 
- 
- 
- 
- 
- 
+
 'global variables 
 dim globalLogLevelIsWarning 'boolean variable indicating if warning log level has been choosen or not
 globalLogLevelIsWarning = true 'default setting for warning log level is true
