@@ -9,8 +9,8 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.0.5
-' Date: 2017-01-10 
+' Version: 1.0.6
+' Date: 2017-01-11 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -74,7 +74,9 @@
 '			Checks that the stereotype for packages and elements got the right use of lower- and uppercase, if not, return an error. Stereotypes to be cheked:
 '			CodeList, dataType, enumeration, interface, Leaf, Union, FeatureType, ApplicationSchema
 '	/req/uml/profile      
-'			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25 
+'			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25
+'	/req/uml/feature
+'			featureType classes shall have unique names within the applicationSchema		
 '
 ' 
 ' Project Browser Script main function 
@@ -180,6 +182,9 @@
 							'------------------------------------------------------------------ 
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
+	
+							'check uniqueness of featureType names
+							checkUniqueFeatureTypeNames()
 	
 							'error-message for /krav/hoveddiagram/navning (sub procedure: CheckPackageForHoveddiagram)
 							'if the applicationSchema package got less than one diagram with a name starting with "Hoveddiagram", then return an error 	
@@ -2128,8 +2133,68 @@ sub checkEndingOfPackageName(thePackage)
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
-
-
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Sub name: checkUniqueFeatureTypeNames
+' Author: Magnus Karge
+' Date: 20170110 
+' Purpose:  sub procedure to check if a given FeatureType's name is unique within the applicationSchema
+''			(tha class name shall be unique within the application schema shall have role names [/req/uml/feature]) 
+' 			
+' @param[in]: 	none - uses only global variables FeatureTypeNames and FeatureTypeElementIDs
+sub checkUniqueFeatureTypeNames()
+	DO UNTIL FeatureTypeNames.count = 0 AND FeatureTypeElementIDs.count = 0 
+		'Session.Output("DEBUG FeatureTypeNames.count: "&FeatureTypeNames.count)
+		'Session.Output("DEBUG FeatureTypeElementIDs.count: "&FeatureTypeElementIDs.count)
+		dim temporaryFeatureTypeArray
+		set temporaryFeatureTypeArray = CreateObject("System.Collections.ArrayList")
+		dim ftNameToCompare
+		ftNameToCompare = FeatureTypeNames.Item(0)
+		dim ftElementID
+		ftElementID = FeatureTypeElementIDs.Item(0)
+		dim initialElementToAdd AS EA.Element
+		set initialElementToAdd = Repository.GetElementByID(ftElementID)
+		temporaryFeatureTypeArray.Add(initialElementToAdd)
+		FeatureTypeNames.RemoveAt(0)
+		FeatureTypeElementIDs.RemoveAt(0)
+		'Session.Output("DEBUG ftNameToCompare: "&ftNameToCompare)
+		dim elementNumber
+		for elementNumber = FeatureTypeNames.count - 1 to 1 step -1
+			dim currentName
+			currentName = FeatureTypeNames.Item(elementNumber)
+			'Session.Output("DEBUG currentName: "&currentName)
+			if currentName = ftNameToCompare then
+				dim currentElementID
+				currentElementID = FeatureTypeElementIDs.Item(elementNumber)
+				dim additionalElementToAdd AS EA.Element
+				set additionalElementToAdd = Repository.GetElementByID(currentElementID) 
+				temporaryFeatureTypeArray.Add(additionalElementToAdd)
+				FeatureTypeNames.RemoveAt(elementNumber)
+				FeatureTypeElementIDs.RemoveAt(elementNumber)
+			end if
+		next
+		'generate error messagees
+		dim tempStoredFeatureType AS EA.Element
+		if temporaryFeatureTypeArray.count > 1 then
+			globalErrorCounter = globalErrorCounter + (temporaryFeatureTypeArray.count - 1)
+			for each tempStoredFeatureType in temporaryFeatureTypeArray
+				dim theFeatureTypePackage AS EA.Package
+				set theFeatureTypePackage = Repository.GetPackageByID(tempStoredFeatureType.PackageID) 
+				dim theFeatureTypePackageName
+				theFeatureTypePackageName = theFeatureTypePackage.Name
+				Session.Output("Error: Found nonunique names forClass [«"&tempStoredFeatureType.Stereotype&"» "&tempStoredFeatureType.Name&"] in package ["&theFeatureTypePackageName& "] does not have a unique name. [TEST]")
+			next	
+		end if
+	
+	
+		
+		
+		
+		'get the element with the first elementID and move it to the temporary array
+	LOOP
+	
+	
+ end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
@@ -2287,7 +2352,13 @@ sub FindInvalidElementsInPackage(package)
 			'------------------------------------------------------------------ 
 			'---CLASSES---ENUMERATIONS---DATATYPE  								'   classifiers ???
 			'------------------------------------------------------------------		 
- 
+			
+			'add name and element id of the featureType to the related array variables in order to check if the names are unique
+			if currentElement.Type = "Class" AND UCase(currentElement.Stereotype) = "FEATURETYPE" then
+				FeatureTypeNames.Add(currentElement.Name)
+				FeatureTypeElementIDs.Add(currentElement.ElementID)
+			end if
+			
 			'Iso 19103 Requirement 6 - NCNames in codelist codes.
 			if (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION" Or currentElement.Type = "Enumeration") then
 				call krav6mnemoniskKodenavn(currentElement)
@@ -2561,5 +2632,11 @@ Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
 'Global objects for testing whether a class is showing all its content in at least one diagram.  /krav/18
 dim startPackage as EA.Package
 dim diaoList
+
+'two global variables for checking uniqueness of FeatureType names - shall be updated in sync 
+dim FeatureTypeNames 
+Set FeatureTypeNames = CreateObject("System.Collections.ArrayList")
+dim FeatureTypeElementIDs
+Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
