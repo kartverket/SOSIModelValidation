@@ -2111,27 +2111,28 @@ end sub
 ' Packages under development should have the text "Utkast" as the final element, after the version number. 
 ' Date: 25.08.16 (original version) 10.01.17 (Updated version)
 sub checkEndingOfPackageName(thePackage)
-	'find the last part of the package name, after "-" 
-	dim startContent, endContent, stringContent, cleanContent 	
+	if UCase(thePackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+		'find the last part of the package name, after "-" 
+		dim startContent, endContent, stringContent, cleanContent 		
+		
+		'remove any "Utkast" part of the name 
+		cleanContent=replace(UCase(thePackage.Name), "UTKAST", "")
+		
+		endContent = len(cleanContent)
 	
-	'remove any "Utkast" part of the name 
-	cleanContent=replace(UCase(thePackage.Name), "UTKAST", "")
+		startContent = InStr(cleanContent, "-") 
 	
-	endContent = len(cleanContent)
+		stringContent = mid(cleanContent, startContent+1, endContent) 	
+		dim versionNumberInPackageName
+		versionNumberInPackageName = false 
+		'count number of dots, only allowed to use max two. 
+		dim dotCounter
+		dotCounter = 0
 
-	startContent = InStr(cleanContent, "-") 
-	
-	stringContent = mid(cleanContent, startContent+1, endContent) 	
-	dim versionNumberInPackageName
-	versionNumberInPackageName = false 
-	'count number of dots, only allowed to use max two. 
-	dim dotCounter
-	dotCounter = 0
-
-	'check that the package name contains a "-", and thats it is just number(s) and "." after. 
-	if InStr(thePackage.Name, "-") then 			
-'		'if the string is numeric or it has dots, set the valueOk true 
-		if  InStr(stringContent, ".")  or IsNumeric(stringContent)  then
+		'check that the package name contains a "-", and thats it is just number(s) and "." after. 
+		if InStr(thePackage.Name, "-") then 			
+			'if the string is numeric or it has dots, set the valueOk true 
+			if  InStr(stringContent, ".")  or IsNumeric(stringContent)  then
 				versionNumberInPackageName = true 
 				dim i, tegn 
 				for i = 1 to len(stringContent) 
@@ -2147,31 +2148,31 @@ sub checkEndingOfPackageName(thePackage)
 					'Session.Output("for mange punktum")
 					versionNumberInPackageName = false
 				end if
+			end if 
 		end if 
-	end if 
 
-	'check the string for letters and symbols. If the package name contains one of the following, then return an error. 
-	if inStr(UCase(stringContent), "A") or inStr(UCase(stringContent), "B") or inStr(UCase(stringContent), "C") or inStr(UCase(stringContent), "D") or inStr(UCase(stringContent), "E") or inStr(UCase(stringContent), "F") or inStr(UCase(stringContent), "G") or inStr(UCase(stringContent), "H") or inStr(UCase(stringContent), "I") or inStr(UCase(stringContent), "J") or inStr(UCase(stringContent), "K") or inStr(UCase(stringContent), "L")  then 
-		versionNumberInPackageName = false
-	end if 	
-	if inStr(UCase(stringContent), "M") or inStr(UCase(stringContent), "N") or inStr(UCase(stringContent), "O") or inStr(UCase(stringContent), "P") or inStr(UCase(stringContent), "Q") or inStr(UCase(stringContent), "R") or inStr(UCase(stringContent), "S") or inStr(UCase(stringContent), "T") or inStr(UCase(stringContent), "U") or inStr(UCase(stringContent), "V") or inStr(UCase(stringContent), "W") or inStr(UCase(stringContent), "X") then          
-		versionNumberInPackageName = false
-	end if 
-	if inStr(UCase(stringContent), "Y") or inStr(UCase(stringContent), "Z") or inStr(UCase(stringContent), "Æ") or inStr(UCase(stringContent), "Ø") or inStr(UCase(stringContent), "Å") then 
-		versionNumberInPackageName = false
-	end if 
-	if inStr(stringContent, ",") or inStr(stringContent, "!") or inStr(stringContent, "@") or inStr(stringContent, "%") or inStr(stringContent, "&") or inStr(stringContent, """") or inStr(stringContent, "#") or inStr(stringContent, "$") or inStr(stringContent, "'") or inStr(stringContent, "(") or inStr(stringContent, ")") or inStr(stringContent, "*") or inStr(stringContent, "+") or inStr(stringContent, "/") then        
-		versionNumberInPackageName = false
-	end if
-	if inStr(stringContent, ":") or inStr(stringContent, ";") or inStr(stringContent, ">") or inStr(stringContent, "<") or inStr(stringContent, "=") then
-		versionNumberInPackageName = false
-	end if 
+		'check the string for letters and symbols. If the package name contains one of the following, then return an error. 
+		if inStr(UCase(stringContent), "A") or inStr(UCase(stringContent), "B") or inStr(UCase(stringContent), "C") or inStr(UCase(stringContent), "D") or inStr(UCase(stringContent), "E") or inStr(UCase(stringContent), "F") or inStr(UCase(stringContent), "G") or inStr(UCase(stringContent), "H") or inStr(UCase(stringContent), "I") or inStr(UCase(stringContent), "J") or inStr(UCase(stringContent), "K") or inStr(UCase(stringContent), "L")  then 
+			versionNumberInPackageName = false
+		end if 	
+		if inStr(UCase(stringContent), "M") or inStr(UCase(stringContent), "N") or inStr(UCase(stringContent), "O") or inStr(UCase(stringContent), "P") or inStr(UCase(stringContent), "Q") or inStr(UCase(stringContent), "R") or inStr(UCase(stringContent), "S") or inStr(UCase(stringContent), "T") or inStr(UCase(stringContent), "U") or inStr(UCase(stringContent), "V") or inStr(UCase(stringContent), "W") or inStr(UCase(stringContent), "X") then          
+			versionNumberInPackageName = false
+		end if 
+		if inStr(UCase(stringContent), "Y") or inStr(UCase(stringContent), "Z") or inStr(UCase(stringContent), "Æ") or inStr(UCase(stringContent), "Ø") or inStr(UCase(stringContent), "Å") then 
+			versionNumberInPackageName = false
+		end if 
+		if inStr(stringContent, ",") or inStr(stringContent, "!") or inStr(stringContent, "@") or inStr(stringContent, "%") or inStr(stringContent, "&") or inStr(stringContent, """") or inStr(stringContent, "#") or inStr(stringContent, "$") or inStr(stringContent, "'") or inStr(stringContent, "(") or inStr(stringContent, ")") or inStr(stringContent, "*") or inStr(stringContent, "+") or inStr(stringContent, "/") then        
+			versionNumberInPackageName = false
+		end if
+		if inStr(stringContent, ":") or inStr(stringContent, ";") or inStr(stringContent, ">") or inStr(stringContent, "<") or inStr(stringContent, "=") then
+			versionNumberInPackageName = false
+		end if 
 	
-	if versionNumberInPackageName = false  then  
-		Session.Output("Error: Package ["&thePackage.Name&"] does not have a name ending with a version number. [/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer]")
-		globalErrorCounter = globalErrorCounter + 1	
-	end if 
-	
+		if versionNumberInPackageName = false  then  
+			Session.Output("Error: Package ["&thePackage.Name&"] does not have a name ending with a version number. [/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer]")
+			globalErrorCounter = globalErrorCounter + 1	
+		end if 
+	end if	
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2238,6 +2239,7 @@ sub checkUniqueFeatureTypeNames()
  end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkUtkast
 ' Author: Åsmund Tjora	
 ' Purpose: check that packages with "Utkast" as part of the package name also has "Utkast" as SOSI_modellstatus tag and that package with the "Utkast"
@@ -2261,21 +2263,31 @@ sub checkUtkast(thePackage)
 		end if
 	next
 	
-	if (utkastInName=true and utkastInTag=false) then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has the value "&SOSI_modellstatusTag&" [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+	if (utkastInName = true and SOSI_modellstatusTag = "") then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has no value. Expected value [utkast]. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
 		globalErrorCounter = globalErrorCounter + 1 
-	end if 
+	elseif (utkastInName = true and SOSI_modellstatusTag = "Missing Tag") then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] is missing. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		globalErrorCounter = globalErrorCounter + 1 	
+	elseif (utkastInName=true and utkastInTag=false) then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has the value ["&SOSI_modellstatusTag&"]. Expected value [utkast]. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		globalErrorCounter = globalErrorCounter + 1 
+	end if
 
 	if (utkastInName=false and utkastInTag=true) then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has [SOSI_modellstatus] tag with utkast value, but Utkast is not part of the package name [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has [SOSI_modellstatus] tag with utkast value, but Utkast is not part of the package name. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
+
+	'check case of name.
+	if utkastInName and globalLogLevelIsWarning then
+		if not(len(replace(thePackage.Name, "Utkast",""))=len(replace(UCase(thePackage.Name),"UTKAST",""))) then
+			Session.Output("Warning: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "]. Unexpected upper/lower case of the Utkast part of the name. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+			globalWarningCounter = globalWarningCounter + 1
+		end if
+	end if
 end sub
-
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
-
-
-
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
