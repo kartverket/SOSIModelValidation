@@ -9,7 +9,7 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.0.8
+' Version: 1.0.9
 ' Date: 2017-01-19 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -2586,20 +2586,7 @@ sub FindInvalidElementsInPackage(package)
 					Call structurOfTVforElement(clientEnd, "definition")
 				end if 		
  							
-				'constraints 
-				dim constraintRCollection as EA.Collection 
-				set constraintRCollection = currentConnector.Constraints 
-							
-				if constraintRCollection.Count > 0 then 
-					dim constraintRCounter 
-					for constraintRCounter = 0 to constraintRCollection.Count - 1 					 
-						dim currentRConstraint as EA.Constraint		 
-						set currentRConstraint = constraintRCollection.GetAt(constraintRCounter) 
-						'check if the connectors got constraints that lacks name or definition (/req/uml/constraint)
-						Call checkConstraint(currentRConstraint, currentConnector)
-					next
-				end if 
-							
+											
 				dim sourceElementID 
 				sourceElementID = currentConnector.ClientID 
 				dim sourceEndNavigable  
@@ -2630,6 +2617,28 @@ sub FindInvalidElementsInPackage(package)
 				 							 
 				dim elementOnOppositeSide as EA.Element 
 				if currentElement.ElementID = sourceElementID and not currentConnector.Type = "Realisation" and not currentConnector.Type = "Generalization" then 
+					
+					'------------------------------------------------------------------ 
+					'---'ASSOSIATION'S CONSTRAINTS--- 
+					'----START-------------------------------------------------------------- 
+					
+					dim constraintRCollection as EA.Collection 
+					set constraintRCollection = currentConnector.Constraints 
+							
+					if constraintRCollection.Count > 0 then 
+						dim constraintRCounter 
+						for constraintRCounter = 0 to constraintRCollection.Count - 1 					 
+							dim currentRConstraint as EA.Constraint		 
+							set currentRConstraint = constraintRCollection.GetAt(constraintRCounter) 
+							'check if the connectors got constraints that lacks name or definition (/req/uml/constraint)
+							Call checkConstraint(currentRConstraint, currentConnector)
+						next
+					end if 
+					
+					'----END-------------------------------------------------------------- 
+					'---'ASSOSIATION'S CONSTRAINTS--- 
+					'------------------------------------------------------------------ 
+					
 					set elementOnOppositeSide = Repository.GetElementByID(targetElementID) 
  								 
 					'if the connector has a name (optional according to the rules), check if it starts with capital letter 
