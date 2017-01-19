@@ -68,7 +68,7 @@
 '           Check if the last part of the package name is a version number.  Ignores the text "Utkast" for this check
 '   /krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast
 '			Check if packages with SOSI_modellstatus tag "utkast" has "Utkast" in package name. Also do the reverse check.
-'  	/req/UML/constraint
+'  	/req/uml/constraint
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
@@ -752,7 +752,7 @@ end sub
 ' req/uml/constraint & krav/definisjoner
 ' sub procedure to check the current element/attribute/connector/package for constraints without name or definition
 ' not sure if it is possible in EA that constraints without names can exist, checking it anyways
-' @param[in]: currentConstraint (EA.Constraint) theElement (EA.ObjectType) The object to check against req/UML/constraint,  
+' @param[in]: currentConstraint (EA.Constraint) theElement (EA.ObjectType) The object to check against req/uml/constraint,  
 ' supposed to be one of the following types: EA.Element, EA.Attribute, EA.Connector, EA.package
 
 sub checkConstraint(currentConstraint, theElement)
@@ -2367,7 +2367,7 @@ sub FindInvalidElementsInPackage(package)
 				dim currentPConstraint as EA.Constraint		 
 				set currentPConstraint = constraintPCollection.GetAt(constraintPCounter) 
 								
-				'check if the package got constraints that lack name or definition (/req/UML/constraint)								
+				'check if the package got constraints that lack name or definition (/req/uml/constraint)								
 				Call checkConstraint(currentPConstraint, currentPackage)
 
 			next
@@ -2428,7 +2428,7 @@ sub FindInvalidElementsInPackage(package)
 				dim currentConstraint as EA.Constraint		 
 				set currentConstraint = constraintCollection.GetAt(constraintCounter) 
 							
-				'check if the constraints lack name or definition (/req/UML/constraint)
+				'check if the constraints lack name or definition (/req/uml/constraint)
 				Call checkConstraint(currentConstraint, currentElement)
 
 			next
@@ -2544,7 +2544,7 @@ sub FindInvalidElementsInPackage(package)
 							dim currentAConstraint as EA.Constraint		 
 							set currentAConstraint = constraintACollection.GetAt(constraintACounter) 
 									
-							'check if the constraints lacks name or definition (/req/UML/constraint)
+							'check if the constraints lacks name or definition (/req/uml/constraint)
 							Call checkConstraint(currentAConstraint, currentAttribute)
 
 						next
@@ -2595,7 +2595,7 @@ sub FindInvalidElementsInPackage(package)
 					for constraintRCounter = 0 to constraintRCollection.Count - 1 					 
 						dim currentRConstraint as EA.Constraint		 
 						set currentRConstraint = constraintRCollection.GetAt(constraintRCounter) 
-						'check if the connectors got constraints that lacks name or definition (/req/UML/constraint)
+						'check if the connectors got constraints that lacks name or definition (/req/uml/constraint)
 						Call checkConstraint(currentRConstraint, currentConnector)
 					next
 				end if 
