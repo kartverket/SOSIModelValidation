@@ -1,4 +1,4 @@
-﻿﻿option explicit 
+﻿option explicit 
  
  !INC Local Scripts.EAConstants-VBScript 
  
@@ -10,7 +10,7 @@
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
 ' Version: 1.0.7
-' Date: 2017-01-15 
+' Date: 2017-01-17 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -35,6 +35,7 @@
 '			Iso 19103 Requirement 16 -legal NCNames case-insesnitively unique within their namespace
 '  	/krav/18
 '			Iso 19103 Requirement 18 -all elements shall show all structures in at least one diagram
+'			Current version test all classes and their attributes in diagrams, not yet roles and inheritance.
 '	/krav/definisjoner: 
 '			Same as krav/3 but checks also for definitions of packages and constraints
 '			The part that checks definitions of constraints is implemented in sub checkConstraint	
@@ -176,6 +177,7 @@
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
+							Set diagList = CreateObject( "System.Collections.Sortedlist" )
 							recListDiagramObjects(thePackage)
 
 							Dim StartTime, EndTime, Elapsed
@@ -749,7 +751,6 @@ end sub
 ' Purpose: to check if a constraint lacks name or definition. 
 ' req/uml/constraint & krav/definisjoner
 ' sub procedure to check the current element/attribute/connector/package for constraints without name or definition
-' not sure if it is possible in EA that constraints without names can exist, checking it anyways
 ' @param[in]: currentConstraint (EA.Constraint) theElement (EA.ObjectType) The object to check against req/UML/constraint,  
 ' supposed to be one of the following types: EA.Element, EA.Attribute, EA.Connector, EA.package
 
@@ -783,16 +784,12 @@ sub checkConstraint(currentConstraint, theElement)
 		set currentAttribute = theElement 
 		
 		'if the current constraint lacks definition, then return an error
-		dim parentElementID
-		parentElementID = currentAttribute.ParentID
-		dim parentElementOfAttribute AS EA.Element
-		set parentElementOfAttribute = Repository.GetElementByID(parentElementID)
 		if currentConstraint.Notes= "" then 
-			Session.Output("Error: Class ["&parentElementOfAttribute.Name&"] \ attribute ["&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Attribute ["&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
-		'if the current constraint lacks a name, then return an error 	
+		'if the current constraint lacks a name, then return an error 		
 		if currentConstraint.Name = "" then
 			Session.Output("Error: Attribute ["&theElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
@@ -801,13 +798,13 @@ sub checkConstraint(currentConstraint, theElement)
 		Case otPackage
 		set currentPackage = theElement
 		
-		'if the current constraint lacks definition, then return an error message
+		'if the current constraint lacks definition, then return an error
 		if currentConstraint.Notes= "" then 
 			Session.Output("Error: Package [«"&theElement.Element.Stereotype&"» "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
-		'if the current constraint lacks a name, then return an error meessage		
+		'if the current constraint lacks a name, then return an error 		
 		if currentConstraint.Name = "" then
 			Session.Output("Error: Package [«" &theElement.Element.Stereotype&"» " &currentElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
@@ -816,24 +813,13 @@ sub checkConstraint(currentConstraint, theElement)
 		Case otConnector
 		set currentConnector = theElement
 		
-		'if the current constraint lacks definition, then return an error message
+		'if the current constraint lacks definition, then return an error
 		if currentConstraint.Notes= "" then 
-		
-			dim sourceElementID
-			sourceElementID = currentConnector.ClientID
-			dim sourceElementOfConnector AS EA.Element
-			set sourceElementOfConnector = Repository.GetElementByID(sourceElementID)
-			
-			dim targetElementID
-			targetElementID = currentConnector.SupplierID
-			dim targetElementOfConnector AS EA.Element
-			set targetElementOfConnector = Repository.GetElementByID(targetElementID)
-		
-			Session.Output("Error: Constraint [" &currentConstraint.Name&"] owned by connector [ "&theElement.Name&"] between class ["&sourceElementOfConnector.Name&"] and class ["&targetElementOfConnector.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Connector [ "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
-		'if the current constraint lacks a name, then return an error message		
+		'if the current constraint lacks a name, then return an error 		
 		if currentConstraint.Name = "" then
 			Session.Output("Error: Connector [" &theElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
@@ -1910,14 +1896,16 @@ end sub
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: krav18-viseAlt
 ' Author: Kent Jonsrud
-' Date: 2016-08-09..30, 2016-09-05
+' Date: 2016-08-09..30, 2016-09-05, 2017-01-17 (no more false positives)
 ' Purpose: test whether a class is showing all its content in at least one class diagram.
     '/krav/18
 
 sub krav18viseAlt(theElement)
 
+	dim diagram1 as EA.Diagram
 	dim diagram as EA.Diagram
 	dim diagrams as EA.Collection
+	dim diao1 as EA.DiagramObject
 	dim diao as EA.DiagramObject
 	dim conn as EA.Collection
 	dim super as EA.Element
@@ -1932,28 +1920,28 @@ sub krav18viseAlt(theElement)
 	Dim i, shownTimes
 	shownTimes=0
 	For i = 0 To diaoList.Count - 1
-		if theElement.ElementID = diaoList.GetKey(i) then
-			Set diagram = Repository.GetDiagramByID(diaoList.GetByIndex(i))
-			'if diagram.DiagramID = diaoList.GetByIndex(i) and diagram.Type = "Class" then
-			if diagram.DiagramID = diaoList.GetByIndex(i) then
-				shownTimes = shownTimes + 1
-				'class is shown in this diagram, find corresponding class display settings (DiagramObject)
-				set diao = nothing
-				for each diao in diagram.DiagramObjects
-					'corresponding diagram object
-					if diao.ElementID = theElement.ElementID then
-						'testing for diagram settings in undocumented property strings !!!
-						if InStr(1,diagram.ExtendedStyle,"HideEStereo=1") = 0 then
-							if InStr(1,diagram.ExtendedStyle,"UseAlias=1") = 0 or theElement.Alias = "" then
-								if (showAllProperties(theElement, diagram, diao)) then
-									'shows all OK in this diagram, how about inherited? TODO
-									viserAlt = true
-								end if
+		if theElement.ElementID = diaoList.GetByIndex(i) then
+			set diagram = Repository.GetDiagramByID(diagList.GetByIndex(i))
+			shownTimes = shownTimes + 1
+			for each diao in diagram.DiagramObjects
+				if diao.ElementID = theElement.ElementID then
+					exit for
+				end if
+			next
+
+			if theElement.Attributes.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 then
+				if theElement.Methods.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 then
+					if InStr(1,diagram.ExtendedStyle,"HideEStereo=1") = 0 then
+						if InStr(1,diagram.ExtendedStyle,"UseAlias=1") = 0 or theElement.Alias = "" then
+							if (showAllProperties(theElement, diagram, diao)) then
+								'shows all OK in this diagram, how about inherited?
+								viserAlt = true
 							end if
 						end if
 					end if
-				next
+				end if
 			end if
+
 		end if
 	next
 	
@@ -1969,7 +1957,7 @@ end sub
 
 function showAllProperties(theElement, diagram, diao)
 	showAllProperties = false
-	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diao.ShowPublicAttributes or InStr(1,diao.Style,"AttCustom=0" ) <> 0 or theElement.Attributes.Count = 0 then
+	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diao.ShowPublicAttributes and InStr(1,diao.Style,"AttCustom=1" ) = 0 or theElement.Attributes.Count = 0 then
 		if InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 and diao.ShowPublicOperations or InStr(1,diao.Style,"OpCustom=0" ) <> 0 or theElement.Methods.Count = 0 then
 			if InStr(1,diagram.ExtendedStyle,"ShowCons=0") = 0 or diao.ShowConstraints or InStr(1,diao.Style,"Constraint=1" ) <> 0 or theElement.Constraints.Count = 0 then
 				' all attribute parts really shown? ...
@@ -1994,7 +1982,8 @@ sub recListDiagramObjects(p)
 	for each d In p.diagrams
 		for each Dobj in d.DiagramObjects
 			If not diaoList.ContainsKey(Dobj.ElementID) Then
-				diaoList.Add Dobj.ElementID, Dobj.DiagramID
+				diaoList.Add Dobj.InstanceID, Dobj.ElementID
+				diagList.Add Dobj.InstanceID, Dobj.DiagramID
 			end if   
 		next	
 	next
@@ -2127,28 +2116,27 @@ end sub
 ' Packages under development should have the text "Utkast" as the final element, after the version number. 
 ' Date: 25.08.16 (original version) 10.01.17 (Updated version)
 sub checkEndingOfPackageName(thePackage)
-	if UCase(thePackage.Element.Stereotype)="APPLICATIONSCHEMA" then
-		'find the last part of the package name, after "-" 
-		dim startContent, endContent, stringContent, cleanContent 		
-		
-		'remove any "Utkast" part of the name 
-		cleanContent=replace(UCase(thePackage.Name), "UTKAST", "")
-		
-		endContent = len(cleanContent)
+	'find the last part of the package name, after "-" 
+	dim startContent, endContent, stringContent, cleanContent 	
 	
-		startContent = InStr(cleanContent, "-") 
+	'remove any "Utkast" part of the name 
+	cleanContent=replace(UCase(thePackage.Name), "UTKAST", "")
 	
-		stringContent = mid(cleanContent, startContent+1, endContent) 	
-		dim versionNumberInPackageName
-		versionNumberInPackageName = false 
-		'count number of dots, only allowed to use max two. 
-		dim dotCounter
-		dotCounter = 0
+	endContent = len(cleanContent)
 
-		'check that the package name contains a "-", and thats it is just number(s) and "." after. 
-		if InStr(thePackage.Name, "-") then 			
-			'if the string is numeric or it has dots, set the valueOk true 
-			if  InStr(stringContent, ".")  or IsNumeric(stringContent)  then
+	startContent = InStr(cleanContent, "-") 
+	
+	stringContent = mid(cleanContent, startContent+1, endContent) 	
+	dim versionNumberInPackageName
+	versionNumberInPackageName = false 
+	'count number of dots, only allowed to use max two. 
+	dim dotCounter
+	dotCounter = 0
+
+	'check that the package name contains a "-", and thats it is just number(s) and "." after. 
+	if InStr(thePackage.Name, "-") then 			
+'		'if the string is numeric or it has dots, set the valueOk true 
+		if  InStr(stringContent, ".")  or IsNumeric(stringContent)  then
 				versionNumberInPackageName = true 
 				dim i, tegn 
 				for i = 1 to len(stringContent) 
@@ -2164,31 +2152,31 @@ sub checkEndingOfPackageName(thePackage)
 					'Session.Output("for mange punktum")
 					versionNumberInPackageName = false
 				end if
-			end if 
 		end if 
+	end if 
 
-		'check the string for letters and symbols. If the package name contains one of the following, then return an error. 
-		if inStr(UCase(stringContent), "A") or inStr(UCase(stringContent), "B") or inStr(UCase(stringContent), "C") or inStr(UCase(stringContent), "D") or inStr(UCase(stringContent), "E") or inStr(UCase(stringContent), "F") or inStr(UCase(stringContent), "G") or inStr(UCase(stringContent), "H") or inStr(UCase(stringContent), "I") or inStr(UCase(stringContent), "J") or inStr(UCase(stringContent), "K") or inStr(UCase(stringContent), "L")  then 
-			versionNumberInPackageName = false
-		end if 	
-		if inStr(UCase(stringContent), "M") or inStr(UCase(stringContent), "N") or inStr(UCase(stringContent), "O") or inStr(UCase(stringContent), "P") or inStr(UCase(stringContent), "Q") or inStr(UCase(stringContent), "R") or inStr(UCase(stringContent), "S") or inStr(UCase(stringContent), "T") or inStr(UCase(stringContent), "U") or inStr(UCase(stringContent), "V") or inStr(UCase(stringContent), "W") or inStr(UCase(stringContent), "X") then          
-			versionNumberInPackageName = false
-		end if 
-		if inStr(UCase(stringContent), "Y") or inStr(UCase(stringContent), "Z") or inStr(UCase(stringContent), "Æ") or inStr(UCase(stringContent), "Ø") or inStr(UCase(stringContent), "Å") then 
-			versionNumberInPackageName = false
-		end if 
-		if inStr(stringContent, ",") or inStr(stringContent, "!") or inStr(stringContent, "@") or inStr(stringContent, "%") or inStr(stringContent, "&") or inStr(stringContent, """") or inStr(stringContent, "#") or inStr(stringContent, "$") or inStr(stringContent, "'") or inStr(stringContent, "(") or inStr(stringContent, ")") or inStr(stringContent, "*") or inStr(stringContent, "+") or inStr(stringContent, "/") then        
-			versionNumberInPackageName = false
-		end if
-		if inStr(stringContent, ":") or inStr(stringContent, ";") or inStr(stringContent, ">") or inStr(stringContent, "<") or inStr(stringContent, "=") then
-			versionNumberInPackageName = false
-		end if 
+	'check the string for letters and symbols. If the package name contains one of the following, then return an error. 
+	if inStr(UCase(stringContent), "A") or inStr(UCase(stringContent), "B") or inStr(UCase(stringContent), "C") or inStr(UCase(stringContent), "D") or inStr(UCase(stringContent), "E") or inStr(UCase(stringContent), "F") or inStr(UCase(stringContent), "G") or inStr(UCase(stringContent), "H") or inStr(UCase(stringContent), "I") or inStr(UCase(stringContent), "J") or inStr(UCase(stringContent), "K") or inStr(UCase(stringContent), "L")  then 
+		versionNumberInPackageName = false
+	end if 	
+	if inStr(UCase(stringContent), "M") or inStr(UCase(stringContent), "N") or inStr(UCase(stringContent), "O") or inStr(UCase(stringContent), "P") or inStr(UCase(stringContent), "Q") or inStr(UCase(stringContent), "R") or inStr(UCase(stringContent), "S") or inStr(UCase(stringContent), "T") or inStr(UCase(stringContent), "U") or inStr(UCase(stringContent), "V") or inStr(UCase(stringContent), "W") or inStr(UCase(stringContent), "X") then          
+		versionNumberInPackageName = false
+	end if 
+	if inStr(UCase(stringContent), "Y") or inStr(UCase(stringContent), "Z") or inStr(UCase(stringContent), "Æ") or inStr(UCase(stringContent), "Ø") or inStr(UCase(stringContent), "Å") then 
+		versionNumberInPackageName = false
+	end if 
+	if inStr(stringContent, ",") or inStr(stringContent, "!") or inStr(stringContent, "@") or inStr(stringContent, "%") or inStr(stringContent, "&") or inStr(stringContent, """") or inStr(stringContent, "#") or inStr(stringContent, "$") or inStr(stringContent, "'") or inStr(stringContent, "(") or inStr(stringContent, ")") or inStr(stringContent, "*") or inStr(stringContent, "+") or inStr(stringContent, "/") then        
+		versionNumberInPackageName = false
+	end if
+	if inStr(stringContent, ":") or inStr(stringContent, ";") or inStr(stringContent, ">") or inStr(stringContent, "<") or inStr(stringContent, "=") then
+		versionNumberInPackageName = false
+	end if 
 	
-		if versionNumberInPackageName = false  then  
-			Session.Output("Error: Package ["&thePackage.Name&"] does not have a name ending with a version number. [/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer]")
-			globalErrorCounter = globalErrorCounter + 1	
-		end if 
-	end if	
+	if versionNumberInPackageName = false  then  
+		Session.Output("Error: Package ["&thePackage.Name&"] does not have a name ending with a version number. [/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer]")
+		globalErrorCounter = globalErrorCounter + 1	
+	end if 
+	
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2197,12 +2185,13 @@ end sub
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if a given FeatureType's name is unique within the applicationSchema
-''			(the class name shall be unique within the application schema [/req/uml/feature]) 
+''			(tha class name shall be unique within the application schema shall have role names [/req/uml/feature]) 
 ' 			
 ' @param[in]: 	none - uses only global variables FeatureTypeNames and FeatureTypeElementIDs
 sub checkUniqueFeatureTypeNames()
-	'iterate over elements in the  name and id arrays until the arrays are empty
-	DO UNTIL FeatureTypeNames.count = 0 AND FeatureTypeElementIDs.count = 0 				
+	DO UNTIL FeatureTypeNames.count = 0 AND FeatureTypeElementIDs.count = 0 
+		'Session.Output("DEBUG FeatureTypeNames.count: "&FeatureTypeNames.count)
+		'Session.Output("DEBUG FeatureTypeElementIDs.count: "&FeatureTypeElementIDs.count)
 		dim temporaryFeatureTypeArray
 		set temporaryFeatureTypeArray = CreateObject("System.Collections.ArrayList")
 		dim ftNameToCompare
@@ -2214,8 +2203,9 @@ sub checkUniqueFeatureTypeNames()
 		temporaryFeatureTypeArray.Add(initialElementToAdd)
 		FeatureTypeNames.RemoveAt(0)
 		FeatureTypeElementIDs.RemoveAt(0)
+		'Session.Output("DEBUG ftNameToCompare: "&ftNameToCompare)
 		dim elementNumber
-		for elementNumber = FeatureTypeNames.count - 1 to 0 step -1
+		for elementNumber = FeatureTypeNames.count - 1 to 1 step -1
 			dim currentName
 			currentName = FeatureTypeNames.Item(elementNumber)
 			'Session.Output("DEBUG currentName: "&currentName)
@@ -2224,25 +2214,21 @@ sub checkUniqueFeatureTypeNames()
 				currentElementID = FeatureTypeElementIDs.Item(elementNumber)
 				dim additionalElementToAdd AS EA.Element
 				set additionalElementToAdd = Repository.GetElementByID(currentElementID) 
-				'add element with matching name to the temporary array and remove its name and ID from the name and id array
 				temporaryFeatureTypeArray.Add(additionalElementToAdd)
 				FeatureTypeNames.RemoveAt(elementNumber)
 				FeatureTypeElementIDs.RemoveAt(elementNumber)
 			end if
 		next
-		
-		'generate error messages according to content of the temporary array
+		'generate error messagees
 		dim tempStoredFeatureType AS EA.Element
 		if temporaryFeatureTypeArray.count > 1 then
-			Session.Output("Error: Found nonunique names for the following classes. [req/uml/feature]")
-			'counting one error per name conflict (not one error per class with nonunique name)
-			globalErrorCounter = globalErrorCounter + 1
+			globalErrorCounter = globalErrorCounter + (temporaryFeatureTypeArray.count - 1)
 			for each tempStoredFeatureType in temporaryFeatureTypeArray
 				dim theFeatureTypePackage AS EA.Package
 				set theFeatureTypePackage = Repository.GetPackageByID(tempStoredFeatureType.PackageID) 
 				dim theFeatureTypePackageName
 				theFeatureTypePackageName = theFeatureTypePackage.Name
-				Session.Output("   Class [«"&tempStoredFeatureType.Stereotype&"» "&tempStoredFeatureType.Name&"] in package ["&theFeatureTypePackageName& "]")
+				Session.Output("Error: Found nonunique names forClass [«"&tempStoredFeatureType.Stereotype&"» "&tempStoredFeatureType.Name&"] in package ["&theFeatureTypePackageName& "] does not have a unique name. [TEST]")
 			next	
 		end if
 	
@@ -2257,7 +2243,6 @@ sub checkUniqueFeatureTypeNames()
  end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
-'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkUtkast
 ' Author: Åsmund Tjora	
 ' Purpose: check that packages with "Utkast" as part of the package name also has "Utkast" as SOSI_modellstatus tag and that package with the "Utkast"
@@ -2281,31 +2266,21 @@ sub checkUtkast(thePackage)
 		end if
 	next
 	
-	if (utkastInName = true and SOSI_modellstatusTag = "") then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has no value. Expected value [utkast]. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
-		globalErrorCounter = globalErrorCounter + 1 
-	elseif (utkastInName = true and SOSI_modellstatusTag = "Missing Tag") then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] is missing. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
-		globalErrorCounter = globalErrorCounter + 1 	
-	elseif (utkastInName=true and utkastInTag=false) then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has the value ["&SOSI_modellstatusTag&"]. Expected value [utkast]. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
-		globalErrorCounter = globalErrorCounter + 1 
-	end if
-
-	if (utkastInName=false and utkastInTag=true) then
-		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has [SOSI_modellstatus] tag with utkast value, but Utkast is not part of the package name. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+	if (utkastInName=true and utkastInTag=false) then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has Utkast as part of the name, but the tag [SOSI_modellstatus] has the value "&SOSI_modellstatusTag&" [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 
-	'check case of name.
-	if utkastInName and globalLogLevelIsWarning then
-		if not(len(replace(thePackage.Name, "Utkast",""))=len(replace(UCase(thePackage.Name),"UTKAST",""))) then
-			Session.Output("Warning: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "]. Unexpected upper/lower case of the Utkast part of the name. [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
-			globalWarningCounter = globalWarningCounter + 1
-		end if
-	end if
+	if (utkastInName=false and utkastInTag=true) then
+		Session.Output("Error: Package [«"&thePackage.Element.Stereotype&"» "&thePackage.Element.Name& "] has [SOSI_modellstatus] tag with utkast value, but Utkast is not part of the package name [/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast]")
+		globalErrorCounter = globalErrorCounter + 1 
+	end if 
 end sub
+
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2465,8 +2440,8 @@ sub FindInvalidElementsInPackage(package)
 			'---CLASSES---ENUMERATIONS---DATATYPE  								'   classifiers ???
 			'------------------------------------------------------------------		 
 			
-			'add name and elementID of the featureType (class, datatype, enumeration with stereotype <<featureType>>) to the related array variables in order to check if the names are unique
-			if UCase(currentElement.Stereotype) = "FEATURETYPE" then
+			'add name and element id of the featureType to the related array variables in order to check if the names are unique
+			if currentElement.Type = "Class" AND UCase(currentElement.Stereotype) = "FEATURETYPE" then
 				FeatureTypeNames.Add(currentElement.Name)
 				FeatureTypeElementIDs.Add(currentElement.ElementID)
 			end if
@@ -2738,6 +2713,7 @@ Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
 'Global objects for testing whether a class is showing all its content in at least one diagram.  /krav/18
 dim startPackage as EA.Package
 dim diaoList
+dim diagList
 
 'two global variables for checking uniqueness of FeatureType names - shall be updated in sync 
 dim FeatureTypeNames 
