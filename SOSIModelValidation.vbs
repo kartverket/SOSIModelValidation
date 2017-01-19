@@ -9,8 +9,8 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.0.6
-' Date: 2017-01-11 
+' Version: 1.0.7
+' Date: 2017-01-17 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -35,6 +35,7 @@
 '			Iso 19103 Requirement 16 -legal NCNames case-insesnitively unique within their namespace
 '  	/krav/18
 '			Iso 19103 Requirement 18 -all elements shall show all structures in at least one diagram
+'			Current version test all classes and their attributes in diagrams, not yet roles and inheritance.
 '	/krav/definisjoner: 
 '			Same as krav/3 but checks also for definitions of packages and constraints
 '			The part that checks definitions of constraints is implemented in sub checkConstraint	
@@ -176,6 +177,7 @@
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
+							Set diagList = CreateObject( "System.Collections.Sortedlist" )
 							recListDiagramObjects(thePackage)
 
 							Dim StartTime, EndTime, Elapsed
@@ -1894,14 +1896,16 @@ end sub
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: krav18-viseAlt
 ' Author: Kent Jonsrud
-' Date: 2016-08-09..30, 2016-09-05
+' Date: 2016-08-09..30, 2016-09-05, 2017-01-17 (no more false positives)
 ' Purpose: test whether a class is showing all its content in at least one class diagram.
     '/krav/18
 
 sub krav18viseAlt(theElement)
 
+	dim diagram1 as EA.Diagram
 	dim diagram as EA.Diagram
 	dim diagrams as EA.Collection
+	dim diao1 as EA.DiagramObject
 	dim diao as EA.DiagramObject
 	dim conn as EA.Collection
 	dim super as EA.Element
@@ -1916,28 +1920,28 @@ sub krav18viseAlt(theElement)
 	Dim i, shownTimes
 	shownTimes=0
 	For i = 0 To diaoList.Count - 1
-		if theElement.ElementID = diaoList.GetKey(i) then
-			Set diagram = Repository.GetDiagramByID(diaoList.GetByIndex(i))
-			'if diagram.DiagramID = diaoList.GetByIndex(i) and diagram.Type = "Class" then
-			if diagram.DiagramID = diaoList.GetByIndex(i) then
-				shownTimes = shownTimes + 1
-				'class is shown in this diagram, find corresponding class display settings (DiagramObject)
-				set diao = nothing
-				for each diao in diagram.DiagramObjects
-					'corresponding diagram object
-					if diao.ElementID = theElement.ElementID then
-						'testing for diagram settings in undocumented property strings !!!
-						if InStr(1,diagram.ExtendedStyle,"HideEStereo=1") = 0 then
-							if InStr(1,diagram.ExtendedStyle,"UseAlias=1") = 0 or theElement.Alias = "" then
-								if (showAllProperties(theElement, diagram, diao)) then
-									'shows all OK in this diagram, how about inherited? TODO
-									viserAlt = true
-								end if
+		if theElement.ElementID = diaoList.GetByIndex(i) then
+			set diagram = Repository.GetDiagramByID(diagList.GetByIndex(i))
+			shownTimes = shownTimes + 1
+			for each diao in diagram.DiagramObjects
+				if diao.ElementID = theElement.ElementID then
+					exit for
+				end if
+			next
+
+			if theElement.Attributes.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 then
+				if theElement.Methods.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 then
+					if InStr(1,diagram.ExtendedStyle,"HideEStereo=1") = 0 then
+						if InStr(1,diagram.ExtendedStyle,"UseAlias=1") = 0 or theElement.Alias = "" then
+							if (showAllProperties(theElement, diagram, diao)) then
+								'shows all OK in this diagram, how about inherited?
+								viserAlt = true
 							end if
 						end if
 					end if
-				next
+				end if
 			end if
+
 		end if
 	next
 	
@@ -1953,7 +1957,7 @@ end sub
 
 function showAllProperties(theElement, diagram, diao)
 	showAllProperties = false
-	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diao.ShowPublicAttributes or InStr(1,diao.Style,"AttCustom=0" ) <> 0 or theElement.Attributes.Count = 0 then
+	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diao.ShowPublicAttributes and InStr(1,diao.Style,"AttCustom=1" ) = 0 or theElement.Attributes.Count = 0 then
 		if InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 and diao.ShowPublicOperations or InStr(1,diao.Style,"OpCustom=0" ) <> 0 or theElement.Methods.Count = 0 then
 			if InStr(1,diagram.ExtendedStyle,"ShowCons=0") = 0 or diao.ShowConstraints or InStr(1,diao.Style,"Constraint=1" ) <> 0 or theElement.Constraints.Count = 0 then
 				' all attribute parts really shown? ...
@@ -1978,7 +1982,8 @@ sub recListDiagramObjects(p)
 	for each d In p.diagrams
 		for each Dobj in d.DiagramObjects
 			If not diaoList.ContainsKey(Dobj.ElementID) Then
-				diaoList.Add Dobj.ElementID, Dobj.DiagramID
+				diaoList.Add Dobj.InstanceID, Dobj.ElementID
+				diagList.Add Dobj.InstanceID, Dobj.DiagramID
 			end if   
 		next	
 	next
@@ -2708,6 +2713,7 @@ Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
 'Global objects for testing whether a class is showing all its content in at least one diagram.  /krav/18
 dim startPackage as EA.Package
 dim diaoList
+dim diagList
 
 'two global variables for checking uniqueness of FeatureType names - shall be updated in sync 
 dim FeatureTypeNames 
