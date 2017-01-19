@@ -62,10 +62,10 @@
 '	/krav/navning (partially): 
 '			Check if names of attributes, operations, roles start with lower case and names of packages,  
 '			classes and associations start with upper case 
-'	/krav/SOSI-modellregister/ applikasjonsskjema/status
+'	/krav/SOSI-modellregister/applikasjonsskjema/status
 '			Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value
-'   /krav/SOSI-modellregister/ applikasjonsskjema/versjonsnummer
-'           Check if the last part of the package name is a version number.  Ignore the text "Utkast" for this check
+'   /krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer
+'           Check if the last part of the package name is a version number.  Ignores the text "Utkast" for this check
 '   /krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast
 '			Check if packages with SOSI_modellstatus tag "utkast" has "Utkast" in package name. Also do the reverse check.
 '  	/req/UML/constraint
@@ -359,7 +359,7 @@ end sub
 			end if 	 
  		Case else		 
  			'TODO: need some type of exception handling here
-			Session.Output( "Error: Function [CheckDefinition] started with invalid parameter. DEBUG ME!") 
+			Session.Output( "Error: Function [CheckDefinition] started with invalid parameter.  DEBUG ME!") 
 			globalErrorCounter = globalErrorCounter + 1 
  	End Select 
  	 
@@ -724,7 +724,7 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 					'remove spaces before and after a string, if the value only contains blanks  the value is empty
 					currentExistingTaggedValue.Value = Trim(currentExistingTaggedValue.Value)
 					if len (currentExistingTaggedValue.Value) = 0 then 
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] has an empty version-tag. [krav/UML/packaging]"   )
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] has an empty version-tag. [req/uml/packaging]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueVersionMissing = false 
 					else
@@ -735,7 +735,7 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 			next
 			'if tagged value version lacks for the package, return an error 
 			if taggedValueVersionMissing then
-				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [version] tag. [krav/UML/packaging]")
+				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [version] tag. [req/uml/packaging]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if 
@@ -770,13 +770,13 @@ sub checkConstraint(currentConstraint, theElement)
 		
 		'if the current constraint lacks definition, then return an error
 		if currentConstraint.Notes= "" then 
-			Session.Output("Error: Class [«"&theElement.Stereotype&"» "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Class [«"&theElement.Stereotype&"» "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/uml/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
 		'if the current constraint lacks a name, then return an error 
 		if currentConstraint.Name = "" then
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&currentElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&currentElement.Name& "] has a constraint without a name. [/req/uml/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
@@ -790,13 +790,13 @@ sub checkConstraint(currentConstraint, theElement)
 		dim parentElementOfAttribute AS EA.Element
 		set parentElementOfAttribute = Repository.GetElementByID(parentElementID)
 		if currentConstraint.Notes= "" then 
-			Session.Output("Error: Class ["&parentElementOfAttribute.Name&"] \ attribute ["&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Class ["&parentElementOfAttribute.Name&"] \ attribute ["&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/uml/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
 		'if the current constraint lacks a name, then return an error 	
 		if currentConstraint.Name = "" then
-			Session.Output("Error: Attribute ["&theElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
+			Session.Output("Error: Attribute ["&theElement.Name& "] has a constraint without a name. [/req/uml/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
@@ -805,13 +805,13 @@ sub checkConstraint(currentConstraint, theElement)
 		
 		'if the current constraint lacks definition, then return an error message
 		if currentConstraint.Notes= "" then 
-			Session.Output("Error: Package [«"&theElement.Element.Stereotype&"» "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Package [«"&theElement.Element.Stereotype&"» "&theElement.Name&"] \ constraint [" &currentConstraint.Name&"] lacks definition. [/req/uml/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
 		'if the current constraint lacks a name, then return an error meessage		
 		if currentConstraint.Name = "" then
-			Session.Output("Error: Package [«" &theElement.Element.Stereotype&"» " &currentElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
+			Session.Output("Error: Package [«" &theElement.Element.Stereotype&"» " &currentElement.Name& "] has a constraint without a name. [/req/uml/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 			
@@ -831,13 +831,13 @@ sub checkConstraint(currentConstraint, theElement)
 			dim targetElementOfConnector AS EA.Element
 			set targetElementOfConnector = Repository.GetElementByID(targetElementID)
 		
-			Session.Output("Error: Constraint [" &currentConstraint.Name&"] owned by connector [ "&theElement.Name&"] between class ["&sourceElementOfConnector.Name&"] and class ["&targetElementOfConnector.Name&"] lacks definition. [/req/UML/constraint] & [krav/definisjoner]")
+			Session.Output("Error: Constraint [" &currentConstraint.Name&"] owned by connector [ "&theElement.Name&"] between class ["&sourceElementOfConnector.Name&"] and class ["&targetElementOfConnector.Name&"] lacks definition. [/req/uml/constraint] & [krav/definisjoner]")
 			globalErrorCounter = globalErrorCounter + 1 
 		end if 
 		
 		'if the current constraint lacks a name, then return an error message		
 		if currentConstraint.Name = "" then
-			Session.Output("Error: Connector [" &theElement.Name& "] has a constraint without a name. [/req/UML/constraint]")
+			Session.Output("Error: Connector [" &theElement.Name& "] has a constraint without a name. [/req/uml/constraint]")
 			globalErrorCounter = globalErrorCounter + 1 
 		
 		end if
@@ -877,7 +877,7 @@ sub ValidValueSOSI_modellstatus(theElement, taggedValueName)
 
 						taggedValueSOSIModellstatusMissing = false 
 					else
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value [" &currentExistingTaggedValue.Value& "]. The value is not approved. [/krav/SOSI-modellregister/ applikasjonsskjema/status]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value [" &currentExistingTaggedValue.Value& "]. The value is not approved. [/krav/SOSI-modellregister/applikasjonsskjema/status]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueSOSIModellstatusMissing = false 
 					end if 
@@ -1084,6 +1084,7 @@ sub FindHoveddiagramsInAS(package)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: CheckOversiktsdiagram
 ' Author: Åsmund Tjora (based on FindHoveddiagramsInAS by Sara Henriksen)
@@ -1116,7 +1117,7 @@ sub CheckOversiktsdiagram(package)
 		end if	 
 	next
 	if  ((noHoveddiagram > 1) and (noOversiktsdiagram = 0)) then
-		session.output("Error: Package [" & package.Name & "] has more than one diagram with names starting with Hoveddiagram, but no diagram with name starting with Oversiktsdiagram. [/krav/oversiktsdiagram]")
+		session.output("Error: Package [" & package.Name & "] has more than one diagram with names starting with Hoveddiagram, but no diagram with name starting with Oversiktsdiagram [/krav/oversiktsdiagram]")
 		globalErrorCounter = globalErrorCounter + 1 		
 	end if
 end sub
@@ -1231,7 +1232,7 @@ sub krav6mnemoniskKodenavn(theElement)
 		if NOT IsNCName(attr.Name) then
 			'count number of numeric initial values for one list
 			numberOfFaults = numberOfFaults + 1
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>   [/krav/6 ]")
+			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
 			if goodNames then
 				badName = attr.Name
 			end if
@@ -1241,7 +1242,7 @@ sub krav6mnemoniskKodenavn(theElement)
 		if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
 			numberOfWarnings = numberOfWarnings + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>  [/krav/6 ]")
+				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
 			end if
 			lowerCameCase = false
 		End if
@@ -1321,7 +1322,7 @@ sub krav7kodedefinisjon(theElement)
 		if attr.Notes = "" then
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"].   [/krav/7 ]")
+				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"]. [/krav/7]")
 			end if
 			if goodNames then
 				badName = attr.Name
@@ -1333,7 +1334,7 @@ sub krav7kodedefinisjon(theElement)
 	'if one or more codes lack definition, warning.
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
-			'Session.Output("Warning: Missing definition for code ["&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the codes lack definition.   [/krav/7 ]")
+			'Session.Output("Warning: Missing definition for code ["&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the codes lack definition. [/krav/7]")
 			globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
@@ -1366,7 +1367,7 @@ sub krav14(currentElement)
 			set elementOnOppositeSide = Repository.GetElementByID(targetElementID)
 			
 			if UCase(elementOnOppositeSide.Stereotype) <> UCase(currentElement.Stereotype) then
-				session.output("Error: The stereotype of class [" & elementOnOppositeSide.Name & "] is not the same as the stereotype of [" & currentElement.Name & "]. A class can only inherit from a class with the same stereotype.  [/krav/14]")
+				session.output("Error: The stereotype of class [" & elementOnOppositeSide.Name & "] is not the same as the stereotype of [" & currentElement.Name & "]. A class can only inherit from a class with the same stereotype. [/krav/14]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if
@@ -1406,7 +1407,7 @@ sub krav15stereotyper(theElement)
 		if attr.Stereotype <> "" then
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype. «" & attr.Stereotype & "» on attribute ["&attr.Name&"]  [/krav/15 ]")
+				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype. «" & attr.Stereotype & "» on attribute ["&attr.Name&"]. [/krav/15]")
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 			if goodNames then
@@ -1420,7 +1421,7 @@ sub krav15stereotyper(theElement)
 	'if one or more codes lack definition, warning.
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
-			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype.   [/krav/15 ]")
+			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15 ]")
 			globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
@@ -1429,25 +1430,21 @@ sub krav15stereotyper(theElement)
 	
 	'Association roles with stereotypes other than «estimated»
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: connector name ["&conn.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
 		roleName = ""
 		badStereotype = ""
 		if theElement.ElementID = conn.ClientID then
 			roleName = conn.SupplierEnd.Role
 			badStereotype = conn.SupplierEnd.Stereotype
-			'Session.Output("Debug: supplier role stereotype: ["&roleName&"]")				
 		end if
 		if theElement.ElementID = conn.SupplierID then
 			roleName = conn.ClientEnd.Role
 			badStereotype = conn.ClientEnd.Stereotype
-			'Session.Output("Debug: client role stereotype: ["&roleName&"]")
 		end if
 		'(ignoring all association roles without name!)
 		if roleName <> "" then
 			if badStereotype <> "" and LCase(badStereotype) <> "estimated" then
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] as unknown stereotype «"&badStereotype&"» on role name ["&roleName&"]   [/krav/15 ]")				
+					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] as unknown stereotype «"&badStereotype&"» on role name ["&roleName&"]. [/krav/15]")				
 					globalWarningCounter = globalWarningCounter + 1 
 				end if	
 			end if
@@ -1456,17 +1453,13 @@ sub krav15stereotyper(theElement)
 	
 	'Associations with stereotype, especially «topo»
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: connector stereotype ["&conn.Stereotype&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
 		if conn.Stereotype <> "" then
 			if LCase(conn.Stereotype) = "topo" then
-				'Session.Output("Error: Illegal stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"] connected to class: [«" &theElement.Stereotype& "» " &theElement.Name& "].   Recommended to use the script <endreTopoAssosiasjonTilRestriksjon>  [/krav/15 ]")				
- 				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"].    Recommended to use the script <endreTopoAssosiasjonTilRestriksjon>  [/krav/15 ]")				
+ 				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. Recommended to use the script <endreTopoAssosiasjonTilRestriksjon>. [/krav/15 ]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			else
 				if globalLogLevelIsWarning then
-					'Session.Output("Warning: Unknown stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"] connected to class: [«" &theElement.Stereotype& "» " &theElement.Name& "].    [/krav/15 ]")				
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"].    [/krav/15 ]")				
+					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. [/krav/15]")				
 					globalWarningCounter = globalWarningCounter + 1 
 				end if	
 			end if
@@ -1508,13 +1501,9 @@ sub krav16unikeNCnavn(theElement)
 	'List of element IDs to check for endless recursion (Åsmund)
 	dim inheritanceElementList
 	set inheritanceElementList = CreateObject("System.Collections.ArrayList")
-	
-	'Session.Output("Debug: Class name [«" &theElement.Stereotype& "» " &theElement.Name& "]. and ID:[" &theElement.ElementID& "].")
 
 	'Association role names
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: connector name ["&conn.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
 		roleName = ""
 		if theElement.ElementID = conn.ClientID then
 			roleName = conn.SupplierEnd.Role
@@ -1525,31 +1514,29 @@ sub krav16unikeNCnavn(theElement)
 		'(ignoring all association roles without name!)
 		if roleName <> "" then
 			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique role name ["&roleName&"].    [/krav/16 ]")				
+				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique role name ["&roleName&"]. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			else
 				PropertyNames.Add UCase(roleName)
 			end if
 			if NOT IsNCName(roleName) then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName   [/krav/16 ]")				
+				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			end if
-			'Session.Output("Debug: add role name ["&roleName&"] in class: [" &theElement.Name& "].")
 		end if
 	next
 	
 	'Operation names
 	for each oper in theElement.Methods
 		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique operation property name ["&oper.Name&"].    [/krav/16 ]")				
+			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
 			globalErrorCounter = globalErrorCounter + 1 
 		else
 			PropertyNames.Add UCase(oper.Name)
 		end if
-		'Session.Output("Debug: add operation property name ["&oper.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].")				
 		'check if the name is NCName
 		if NOT IsNCName(oper.Name) then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName   [/krav/16 ]")				
+				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 		end if 
 	next
@@ -1558,22 +1545,20 @@ sub krav16unikeNCnavn(theElement)
 	
 	'navigate through all attributes 
 	for each attr in theElement.Attributes
-		'Session.Output("Debug: attribute ID ["&attr.AttributeID&"] in class: [" &theElement.Name& "].  ID:[" &theElement.ElementID& "].")
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique attribute property name ["&attr.Name&"].    [/krav/16 ]")				
+			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique attribute property name ["&attr.Name&"]. [/krav/16]")				
 			globalErrorCounter = globalErrorCounter + 1 
 		else
 			PropertyNames.Add UCase(attr.Name)
 		end if
-		'Session.Output("Debug: add attribute property name ["&attr.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].")				
 
 		'check if the name is NCName (exception for code names - they have a separate test.)
 		if NOT ((theElement.Type = "Class") and (UCase(theElement.Stereotype) = "CODELIST"  Or UCase(theElement.Stereotype) = "ENUMERATION")) then
 			if NOT IsNCName(attr.Name) then
 				'count number of numeric initial values for one list
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal attribute name, ["&attr.Name&"] is not a NCName   [/krav/16 ]")				
+				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal attribute name, ["&attr.Name&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if 
@@ -1582,12 +1567,10 @@ sub krav16unikeNCnavn(theElement)
 	'Other attributes and roles inherited from outside package
 	'Traverse and test against inherited names but do not add the inherited names to the list(!)
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: connector name ["&conn.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
+
 		if conn.Type = "Generalization" then
 			if theElement.ElementID = conn.ClientID then
 				set super = Repository.GetElementByID(conn.SupplierID)
-				'Session.Output("Debug: Inheritance from supplier : [«" &super.Stereotype& "» " &super.Name& "]. direction: "&conn.Direction&".")				
 				
 				'Check agains endless recursion (Åsmund)
 				dim hopOutOfEndlessRecursion
@@ -1631,8 +1614,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 
 	'Association role names
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: connector name ["&conn.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
+
 		roleName = ""
 		if theElement.ElementID = conn.ClientID then
 			roleName = conn.SupplierEnd.Role
@@ -1644,12 +1626,10 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 		if roleName <> "" then
 			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
 				if globalLogLevelIsWarning then
-					'Session.Output("Warning: Non-unique inherited role property name ["&roleName&"] implicitly redefined from  class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"].    [/krav/16 ]")				
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from  .    [/krav/16 ]")				
+					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from. [/krav/16]")				
 					globalWarningCounter = globalWarningCounter + 1
 				end if	
 			end if
-			'Session.Output("Debug: add role name ["&roleName&"] in class: [" &theElement.Name& "].")
 		end if
 	next
 	
@@ -1657,40 +1637,32 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 	for each oper in theElement.Methods
 		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				'Session.Output("Warning: Non-unique inherited operation property name ["&oper.Name&"] implicitly redefined from class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"].   [/krav/16 ]")				
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"].   [/krav/16 ]")				
+				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
-		'Session.Output("Debug: add operation property name ["&oper.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].")				
 	next
 	
 	'Constraint names TODO
 	
 	'navigate through all attributes 
 	for each attr in theElement.Attributes
-		'Session.Output("Debug: attribute ID ["&attr.AttributeID&"] in class: [" &theElement.Name& "].  ID:[" &theElement.ElementID& "].")
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				'Session.Output("Warning: Non-unique inherited attribute property name["&attr.Name&"]  implicitly redefined from class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"].    [/krav/16 ]")				
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name["&attr.Name&"].     [/krav/16 ]")				
+				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name["&attr.Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
-		'Session.Output("Debug: add attribute property name ["&attr.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].")				
 	next
 
 	'Other attributes and roles inherited from outside package
 	'Traverse and test against inherited names but do not add the inherited names to the list
 	for each conn in theElement.Connectors
-		'Session.Output("Debug: Arv connector name ["&conn.Name&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].  supplier role:["&conn.SupplierEnd.Role&"] client role:["&conn.ClientEnd.Role&"]")				
-		'Session.Output("Debug: Arv connector ID: ["&conn.ConnectorID&"] type: ["&conn.Type&"] in class: [" &theElement.ElementID& "].  supplier ID:["&conn.SupplierID&"] client ID:["&conn.ClientID&"]")				
 		if conn.Type = "Generalization" then
 			if theElement.ElementID = conn.ClientID then
 				set super = Repository.GetElementByID(conn.SupplierID)
-				'Session.Output("Debug: Arv Inheritance from supplier : [«" &super.Stereotype& "» " &super.Name& "]. direction: "&conn.Direction&".")				
 				'Check agains endless recursion (Åsmund)
 				dim hopOutOfEndlessRecursion
 				dim inheritanceElementID
@@ -1889,7 +1861,6 @@ sub reqUmlProfile(theElement)
 		if attr.ClassifierID = 0 then
 			'check if the attribute has a well known core type
 			if ExtensionTypes.IndexOf(attr.Type,0) = -1 then	
-				'Session.Output("Warning: Unknown type for attribute ["&attr.Name&" : "&attr.Type&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "].   [/req/uml/profile  ]")
 				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"].   [/req/uml/profile  ]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
@@ -1962,9 +1933,9 @@ sub krav18viseAlt(theElement)
 	if NOT viserAlt then
  		globalErrorCounter = globalErrorCounter + 1 
  		if shownTimes = 0 then
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&theElement.Name&"] is not shown in any diagram.    [/krav/18 ]")
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&theElement.Name&"] is not shown in any diagram. [/krav/18]")
 		else
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&theElement.Name&"] is not shown fully in at least one diagram.    [/krav/18 ]")				
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» "&theElement.Name&"] is not shown fully in at least one diagram. [/krav/18]")				
 		end if
 	end if
 end sub
@@ -2010,6 +1981,7 @@ end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub name: krav12
 ' Author: Magnus Karge
 ' Date: 20170110 
@@ -2049,7 +2021,10 @@ sub krav12(theElement, theConnector, theElementOnOppositeSide)
 	end if 
 
 end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub name: krav10
 ' Author: Magnus Karge
 ' Date: 20170110 
@@ -2074,8 +2049,10 @@ sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, ta
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub name: krav11
 ' Author: Magnus Karge
 ' Date: 20170110 
@@ -2090,16 +2067,19 @@ end sub
 '				elementOnOppositeSide (EA.Element). The element on the opposite side of the association to check
 sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide)
 	if sourceEndNavigable = "Navigable" and sourceEndName = "" then 
-		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side [/krav/11]") 
+		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
  								 
 	if targetEndNavigable = "Navigable" and targetEndName = "" then 
-		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& elementOnOppositeSide.Name &"-side [/krav/11]") 
+		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& elementOnOppositeSide.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub name: checkRoleNames
 ' Author: Magnus Karge
 ' Date: 20170110 
@@ -2121,6 +2101,8 @@ sub checkRoleNames(theElement, sourceEndName, targetEndName, elementOnOppositeSi
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkEndingOfPackageName
@@ -2221,7 +2203,6 @@ sub checkUniqueFeatureTypeNames()
 		for elementNumber = FeatureTypeNames.count - 1 to 0 step -1
 			dim currentName
 			currentName = FeatureTypeNames.Item(elementNumber)
-			'Session.Output("DEBUG currentName: "&currentName)
 			if currentName = ftNameToCompare then
 				dim currentElementID
 				currentElementID = FeatureTypeElementIDs.Item(elementNumber)
@@ -2248,17 +2229,13 @@ sub checkUniqueFeatureTypeNames()
 				Session.Output("   Class [«"&tempStoredFeatureType.Stereotype&"» "&tempStoredFeatureType.Name&"] in package ["&theFeatureTypePackageName& "]")
 			next	
 		end if
-	
-	
-		
-		
 		
 		'get the element with the first elementID and move it to the temporary array
 	LOOP
 	
-	
  end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkUtkast
@@ -2310,6 +2287,7 @@ sub checkUtkast(thePackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
 ' Author: Kent Jonsrud, Magnus Karge...
@@ -2328,7 +2306,7 @@ sub FindInvalidElementsInPackage(package)
 	'Iso 19103 Requirement 15 - known stereotypes for packages.
 	if UCase(package.element.Stereotype) <> "APPLICATIONSCHEMA" and UCase(package.element.Stereotype) <> "LEAF" and UCase(package.element.Stereotype) <> "" then
 		if globalLogLevelIsWarning then
-			Session.Output("Warning: Unknown package stereotype: [«" &package.element.Stereotype& "» " &package.Name& "].   [/krav/15 ]")
+			Session.Output("Warning: Unknown package stereotype: [«" &package.element.Stereotype& "» " &package.Name& "]. [/krav/15]")
 			globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
@@ -2338,7 +2316,7 @@ sub FindInvalidElementsInPackage(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
-		Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"].    [/krav/16 ]")				
+		Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"]. [/krav/16]")				
 		globalErrorCounter = globalErrorCounter + 1 
 	end if
 
@@ -2358,7 +2336,7 @@ sub FindInvalidElementsInPackage(package)
 	Call checkValueOfTVVersion( package.Element , "version" ) 
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "SOSI_modellstatus" that is valid [/krav/SOSI-modellregister/ applikasjonsskjema/status]
 	Call ValidValueSOSI_modellstatus( package.Element , "SOSI_modellstatus" )
-	'iterate the diagrams and checks if there exists one or more diagram names starting with "Hoveddiagram" if not one has been found already[/krav/hoveddiagram/navning]
+	'iterate the diagrams and checks if there exists one or more diagram names starting with "Hoveddiagram" if not one has been found already [/krav/hoveddiagram/navning]
 	if 	not foundHoveddiagram  then
 		call CheckPackageForHoveddiagram(package)
 	end if 
@@ -2372,7 +2350,7 @@ sub FindInvalidElementsInPackage(package)
 	dim packages as EA.Collection 
 	set packages = package.Packages 'collection of packages that belong to this package	
 			
-	' Navigate the package collection and call the FindNonvalidElementsInPackage function for each of them 
+	'Navigate the package collection and call the FindNonvalidElementsInPackage function for each of them 
 	dim p 
 	for p = 0 to packages.Count - 1 
 		dim currentPackage as EA.Package 
@@ -2407,8 +2385,6 @@ sub FindInvalidElementsInPackage(package)
 		dim currentElement as EA.Element 
 		set currentElement = elements.GetAt( i ) 
 				
-		'Session.Output("DEBUG currentElementName: "&currentElement.Name&" --- currentElementType: "& currentElement.Type&" --- currentElementClassifierType: "&currentElement.ClassifierType)
-				
 		'check elements' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide]
 		Call checkStereotypes(currentElement)	
  				 
@@ -2425,8 +2401,7 @@ sub FindInvalidElementsInPackage(package)
 		'Inherited properties  also included, strictly not an error situation but implicit redefinition is not well supported anyway
 		if currentElement.Type = "Class" or currentElement.Type = "DataType" or currentElement.Type = "Enumeration" or currentElement.Type = "Interface" then
 			if ClassAndPackageNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
-				'Session.Output("Error: non-unique classifier name [«" &currentElement.Stereotype& "» "&currentElement.Name&"] in package: [" &startPackageName& "].  EA-type:" &currentElement.Type& "  [/krav/16 ]")				
-				Session.Output("Error: Class [«" &currentElement.Stereotype& "» "&currentElement.Name&"] in package: [" &package.Name& "] has non-unique name.  [/krav/16 ]")				
+				Session.Output("Error: Class [«" &currentElement.Stereotype& "» "&currentElement.Name&"] in package: [" &package.Name& "] has non-unique name. [/krav/16]")				
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 
@@ -2437,7 +2412,7 @@ sub FindInvalidElementsInPackage(package)
 			' ---OTHER ARTIFACTS--- Do their names also need to be tested for uniqueness? (need to be different?)
 			if currentElement.Type <> "Note" and currentElement.Type <> "Text" and currentElement.Type <> "Boundary" then
 				if ClassAndPackageNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
-					Session.Output("Debug: Unexpected unknown element with non-unique name [«" &currentElement.Stereotype& "» " &currentElement.Name& "]. EA-type: [" &currentElement.Type& "].   [/krav/16 ]")
+					Session.Output("Debug: Unexpected unknown element with non-unique name [«" &currentElement.Stereotype& "» " &currentElement.Name& "]. EA-type: [" &currentElement.Type& "]. [/krav/16]")
 					'This test is dependent on where the artifact is in the test sequence 
 				end if
 			end if
@@ -2488,7 +2463,7 @@ sub FindInvalidElementsInPackage(package)
 			if UCase(currentElement.Stereotype) = "FEATURETYPE"  Or UCase(currentElement.Stereotype) = "DATATYPE" Or UCase(currentElement.Stereotype) = "UNION" or UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION" Or UCase(currentElement.Stereotype) = "ESTIMATED" or UCase(currentElement.Stereotype) = "MESSAGETYPE"  Or UCase(currentElement.Stereotype) = "INTERFACE" then
 			else
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class [«" &currentElement.Stereotype& "» " &currentElement.Name& "] has unknown stereotype.   [/krav/15]")
+					Session.Output("Warning: Class [«" &currentElement.Stereotype& "» " &currentElement.Name& "] has unknown stereotype. [/krav/15]")
 					globalWarningCounter = globalWarningCounter + 1
 				end if	
 			end if
@@ -2738,7 +2713,7 @@ globalWarningCounter = 0
 dim startPackageName
 dim ClassAndPackageNames
 Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
-'Global objects for testing whether a class is showing all its content in at least one diagram.  /krav/18
+'Global objects for testing whether a class is showing all its content in at least one diagram. /krav/18
 dim startPackage as EA.Package
 dim diaoList
 dim diagList
