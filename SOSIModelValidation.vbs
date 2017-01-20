@@ -534,7 +534,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					'check if the value is no or en, if not, retrun a warning 
 					if not mid(StrReverse(currentTaggedValue.Value),1,2) = "ne" and not mid(StrReverse(currentTaggedValue.Value),1,2) = "on" then	
 						if globalLogLevelIsWarning then
-							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke]")
+							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
 							globalWarningCounter = globalWarningCounter + 1 
 						end if
 					end if
@@ -542,36 +542,55 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					exit for 
 				end if   
 				if currentTaggedValue.Name = "language" and currentTaggedValue.Value= "" then 
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke]") 
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 					globalErrorCounter = globalErrorCounter + 1 
 					taggedValueLanguageMissing = false 
 					exit for 
 				end if 
  			next 
 			if taggedValueLanguageMissing then 
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke]") 
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if 
 	end if 
 
 	if taggedValueName = "designation" then
-		
+
 		if not theElement is nothing and Len(taggedValueName) > 0 then
 		
 			'check if the element has a tagged value with the provided name
 			dim currentExistingTaggedValue1 AS EA.TaggedValue 
+			dim valueExists
+			dim enDesignation
+			dim checkQuoteMark
+			dim checkAtMark
 			dim taggedValuesCounter1
+			valueExists=false
+			enDesignation = false
 			for taggedValuesCounter1 = 0 to theElement.TaggedValues.Count - 1
 				set currentExistingTaggedValue1 = theElement.TaggedValues.GetAt(taggedValuesCounter1)
 
 				'check if the tagged value exists, and checks if the value starts with " and ends with "@{language}, if not, return an error. 
 				if currentExistingTaggedValue1.Name = taggedValueName then
-				
-					if not len(currentExistingTaggedValue1.Value) = 0 then 
+					valueExists=true
+					checkQuoteMark=false
+					checkAtMark=false
 					
-						if not (mid(currentExistingTaggedValue1.Value, 1,1 )) = """" or not (mid(StrReverse(currentExistingTaggedValue1.Value), 1,4)) = "ne@"""  and not (mid(StrReverse(currentExistingTaggedValue1.Value), 1,4)) = "on@"""then	
-							Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [designation] has a value [" &currentExistingTaggedValue1.Value& "] with wrong structure. Expected structure: ""{Name}""@{language}. [/krav/flerspråklighet/pakke]")
+					if not len(currentExistingTaggedValue1.Value) = 0 then 
+
+						if (InStr(currentExistingTaggedValue1.Value, "@en")<>0) then 
+							enDesignation=true
+						end if
+						
+						if (mid(currentExistingTaggedValue1.Value, 1, 1) = """") then 
+							checkQuoteMark=true
+						end if
+						if (InStr(currentExistingTaggedValue1.value, """@")<>0) then 
+							checkAtMark=true
+						end if
+						
+						if not (checkAtMark and checkQuoteMark) then
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
@@ -580,17 +599,32 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 	
 						startContent = InStr( currentExistingTaggedValue1.Value, """" ) 			
 						endContent = len(currentExistingTaggedValue1.Value)- InStr( StrReverse(currentExistingTaggedValue1.Value), """" ) -1
-						designationContent = Mid(currentExistingTaggedValue1.Value,startContent+1,endContent)			
+						if endContent<0 then endContent=0
+						designationContent = Mid(currentExistingTaggedValue1.Value,startContent+1,endContent)				
 
 						if InStr(designationContent, """") then
 							if globalLogLevelIsWarning then
-								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [designation] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegeal use of quotation marks.")
+								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [designation] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegal use of quotation marks.")
 								globalWarningCounter = globalWarningCounter + 1 
 							end if	
 						end if
+					else
+						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [designation] has no value [/krav/taggedValueSpråk]") 
+						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if 						
 			next
+			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
+				if not valueExists then
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a designation tag [/krav/taggedValueSpråk]")
+					globalErrorCounter = globalErrorCounter + 1
+				else
+					if not enDesignation then
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [designation] lacks a value for English. Expected value ""{English designation}""@en [/krav/taggedValueSpråk]")
+						globalErrorCounter = globalErrorCounter + 1
+					end if
+				end if
+			end if
 		end if 
 	end if
 end sub 
