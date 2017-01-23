@@ -9,8 +9,8 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.0.9
-' Date: 2017-01-19 
+' Version: 1.1
+' Date: 2017-01-23 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -82,7 +82,8 @@
 '			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25
 '	/req/uml/feature
 '			featureType classes shall have unique names within the applicationSchema		
-'
+'	/krav/taggedValueSpråk 	
+'			ApplicationSchema packages shall have a language tag, designation tag and definition tag. Partially implemented, does not check definition tag
 '
 ' 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
