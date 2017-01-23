@@ -359,8 +359,7 @@ end sub
 			end if 	 
  		Case else		 
  			'TODO: need some type of exception handling here
-			Session.Output( "Error: Function [CheckDefinition] started with invalid parameter.  DEBUG ME!") 
-			globalErrorCounter = globalErrorCounter + 1 
+			Session.Output( "Debug: Function [CheckDefinition] started with invalid parameter.") 
  	End Select 
  	 
 end sub 
