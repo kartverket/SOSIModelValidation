@@ -138,7 +138,7 @@
 				mess = mess + ""&Chr(13)&Chr(10)
 				mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.0.8")
+				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
 				select case box
 					case vbOK
 						'inputBoxGUI to receive user input regarding the log level
