@@ -591,6 +591,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 						end if
 						
 						if not (checkAtMark and checkQuoteMark) then
+							Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [designation] has a value [" &currentExistingTaggedValue1.Value& "] with wrong structure. Expected structure: ""{Designation in language}""@{language}. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
