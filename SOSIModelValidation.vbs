@@ -9,8 +9,8 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.1
-' Date: 2017-01-23 
+' Version: 1.1.1
+' Date: 2017-02-02 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -83,7 +83,7 @@
 '	/req/uml/feature
 '			featureType classes shall have unique names within the applicationSchema		
 '	/krav/taggedValueSpråk 	
-'			ApplicationSchema packages shall have a language tag, designation tag and definition tag. Partially implemented, does not check definition tag
+'			Check that ApplicationSchema packages shall have a language tag. Also check that ApplicationSchema have designation and definition tags in English (i.e. tag value ending with @en)
 '
 ' 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
@@ -510,11 +510,12 @@ sub findMultipleInheritance(currentElement)
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkTVLanguageAndDesignation
-' Author: Sara Henriksen
-' Date: 26.07.16
+' Author: Sara Henriksen (original version), Åsmund Tjora
+' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17
 ' Purpose: Check if the ApplicationSchema-package got a tag named "language" and  check if the value is empty or not. 
-' And if there is a designation tag, checks that it has correct structure: "{name}"@{language}  
-' /krav/flersprålighet/pakke	
+' Check that designation tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) designation for ApplicationSchema packages
+' Check that definition tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) definition for ApplicationSchema packages
+' /krav/flersprålighet/pakke og /krav/taggedValueSpråk	
 ' sub procedure to check if the package has the provided tags with a value with correct structure
 ' @param[in]: theElement (Package Class) and taggedValueName (String)
 
@@ -560,7 +561,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 		end if 
 	end if 
 
-	if taggedValueName = "designation" then
+	if taggedValueName = "designation" or taggedValueName ="definition" then
 
 		if not theElement is nothing and Len(taggedValueName) > 0 then
 		
@@ -596,6 +597,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 						end if
 						
 						if not (checkAtMark and checkQuoteMark) then
+							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an illegal value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
@@ -609,23 +611,23 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 
 						if InStr(designationContent, """") then
 							if globalLogLevelIsWarning then
-								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [designation] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegal use of quotation marks.")
+								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegal use of quotation marks.")
 								globalWarningCounter = globalWarningCounter + 1 
 							end if	
 						end if
 					else
-						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [designation] has no value [/krav/taggedValueSpråk]") 
+						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] has no value [/krav/taggedValueSpråk]") 
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if 						
 			next
 			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
 				if not valueExists then
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a designation tag [/krav/taggedValueSpråk]")
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a " &taggedValueName& " tag [/krav/taggedValueSpråk]")
 					globalErrorCounter = globalErrorCounter + 1
 				else
 					if not enDesignation then
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [designation] lacks a value for English. Expected value ""{English designation}""@en [/krav/taggedValueSpråk]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] lacks a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if
@@ -2356,6 +2358,7 @@ sub FindInvalidElementsInPackage(package)
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "language" or "designation" with any content [/krav/flerspråklighet/pakke]
 	Call checkTVLanguageAndDesignation (package.Element, "language") 
 	Call checkTVLanguageAndDesignation (package.Element, "designation")
+	Call checkTVLanguageAndDesignation (package.Element, "definition")
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "version" with any content [/req/uml/packaging ]	
 	Call checkValueOfTVVersion( package.Element , "version" ) 
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "SOSI_modellstatus" that is valid [/krav/SOSI-modellregister/ applikasjonsskjema/status]
