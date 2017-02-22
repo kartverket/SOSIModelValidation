@@ -72,6 +72,8 @@
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
+'	/req/uml/structure
+'			Check that all abstract classes in application schema has at least one subclass within the same schema.  Check that no classes in application schema has stereotype interface
 '   /anbefaling/1:
 '			Checks every initial values in codeLists and enumerations for a package. If one or more initial values are numeric in one list, 
 ' 			it return a warning message. 
@@ -2311,6 +2313,37 @@ sub checkUtkast(thePackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkInstantiable
+' Author: Åsmund Tjora	
+' Purpose: check that abstract classes has subclass within same application schema.  Check that no interface classes exists in application schema 
+' Date: 10.01.17 
+sub checkInstantiable(theClass)
+	if (UCase(theClass.Stereotype) = "INTERFACE" or theClass.Type = "Interface") then
+		Session.Output("Error:  Class [«" &theClass.Stereotype& "» " &theClass.Name& "].  Interface stereotype for classes is not allowed in ApplicationSchema. [/req/uml/structure]")
+		globalErrorCounter = globalErrorCounter + 1
+	end if
+	' i følge sparxsystems com er verdien av Element.Abstract en streng?
+	if theClass.Abstract = "1" then
+		dim connector as EA.Connector
+		dim hasSpecializations
+		hasSpecializations=false
+		for each connector in theClass.Connectors
+			if connector.Type = "Generalization" then
+				if theClass.ElementID = connector.SupplierID then
+					' må også sjekke om det er i samme pakke: Sammenligne PackageID ? 
+					hasSpecializations=true
+				end if
+			end if
+		next
+		if not hasSpecializations then
+			Session.Output("Error: Class [«" &theClass.Stereotype& "» " &theClass.Name& "]. Abstract class does not have any instantiable specializations in the ApplicationSchema. [/req/uml/structure]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+	end if
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2411,7 +2444,11 @@ sub FindInvalidElementsInPackage(package)
 				
 		'check elements' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide]
 		Call checkStereotypes(currentElement)	
- 				 
+ 				
+		if (currentElement.Type="Class" or currentElement.Type="Interface") then
+			call checkInstantiable(currentElement)
+		end if
+				
 		'Is the currentElement of type Class and stereotype codelist or enumeration, check the initial values are numeric or not (/anbefaling/1)
 		if ((currentElement.Type = "Class") and (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION") Or currentElement.Type = "Enumeration") then
 			call checkNumericinitialValues(currentElement)
