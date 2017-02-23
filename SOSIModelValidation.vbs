@@ -179,6 +179,9 @@
 						loop
 						
 						if not abort then
+						
+						
+							call populatePackageIDList(thePackage)
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -255,6 +258,24 @@
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
  
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulatePackageIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170223
+'Purpose: 		Populate the globalPackageIDList variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+' 
+sub PopulatePackageIDList(rootPackage)
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set subPackageList = rootPackage.Packages
+	
+	globalPackageIDList.Add(rootPackage.PackageID)
+	for each subPackage in subPackageList
+		PopulatePackageIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
  
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Sub name: 		CheckDefinition
@@ -2316,27 +2337,35 @@ end sub
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkInstantiable
 ' Author: Åsmund Tjora	
+' Date: 170223
 ' Purpose: check that abstract classes has subclass within same application schema.  Check that no interface classes exists in application schema 
-' Date: 10.01.17 
+' Input parameter:  theClass  The class that is checked
+
 sub checkInstantiable(theClass)
 	if (UCase(theClass.Stereotype) = "INTERFACE" or theClass.Type = "Interface") then
 		Session.Output("Error:  Class [«" &theClass.Stereotype& "» " &theClass.Name& "].  Interface stereotype for classes is not allowed in ApplicationSchema. [/req/uml/structure]")
 		globalErrorCounter = globalErrorCounter + 1
 	end if
-	' i følge sparxsystems com er verdien av Element.Abstract en streng?
 	if theClass.Abstract = "1" then
 		dim connector as EA.Connector
 		dim hasSpecializations
+		dim specInSameApplicationSchema
 		hasSpecializations=false
+		specInSameApplicationSchema=false
 		for each connector in theClass.Connectors
 			if connector.Type = "Generalization" then
 				if theClass.ElementID = connector.SupplierID then
-					' må også sjekke om det er i samme pakke: Sammenligne PackageID ? 
-					hasSpecializations=true
+					hasSpecializations=true					
+					dim subClass as EA.Element
+					dim pkID
+					set subClass = Repository.GetElementByID(connector.ClientID)
+					for each pkID in globalPackageIDList
+						if subClass.PackageID = pkID then specInSameApplicationSchema=true
+					next
 				end if
 			end if
 		next
-		if not hasSpecializations then
+		if not (hasSpecializations and specInSameApplicationSchema) then
 			Session.Output("Error: Class [«" &theClass.Stereotype& "» " &theClass.Name& "]. Abstract class does not have any instantiable specializations in the ApplicationSchema. [/req/uml/structure]")
 			globalErrorCounter = globalErrorCounter + 1
 		end if
@@ -2793,5 +2822,9 @@ dim FeatureTypeNames
 Set FeatureTypeNames = CreateObject("System.Collections.ArrayList")
 dim FeatureTypeElementIDs
 Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of the starting package and all subpackages
+dim globalPackageIDList
+set globalPackageIDList=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
