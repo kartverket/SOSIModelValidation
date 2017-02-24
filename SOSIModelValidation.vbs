@@ -177,6 +177,13 @@
 						loop
 						
 						if not abort then
+							'Check model for script breaking structures
+							if scriptBreakingStructuresInModel(thePackage) then
+								Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
+								Session.Output("Aborting Script.")
+								exit sub
+							end if
+
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -252,8 +259,82 @@
  	 
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
- 
- 
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Function name: scriptBreakingStructuresInModel
+'Author: 		Åsmund Tjora
+'Date: 			20170222 
+'Purpose: 		Check that the model does not contain structures that will break script operations (e.g. cause infinite loops)
+'Parameter: 	the package where the script runs
+'Return value:	false if no script-breaking structures in model are found, true if parts of the model may break the script.
+'Sub functions and subs:	inHeritanceLoop, inheritanceLoopCheck
+function scriptBreakingStructuresInModel(thePackage)
+	dim elements as EA.Collection
+	set elements = thePackage.elements
+	dim retVal
+	retVal=false
+	dim i
+	for i=0 to elements.Count-1
+		dim currentElement as EA.Element
+		set currentElement = elements.GetAt(i)
+		if(currentElement.Type="Class") then
+			retVal=retVal or inheritanceLoop(currentElement)
+		end if
+	next
+	scriptBreakingStructuresInModel = retVal
+end function
+
+'Function name: inheritanceLoop
+'Author: 		Åsmund Tjora
+'Date: 			20170221 
+'Purpose: 		Check that inheritance structure does not form loops.  Return true if no loops are found, return false if loops are found
+'Parameter: 	Class element where check originates
+'Return value:	false if no loops are found, true if loops are found.
+function inheritanceLoop(theClass)
+	dim retVal
+	dim checkedClassesList
+	set checkedClassesList = CreateObject("System.Collections.ArrayList")
+	retVal=inheritanceLoopCheck(theClass, checkedClassesList)	
+	if retVal then
+		Session.Output("Error: Class [«" & getStereotypeOfClass(theClass) & "» "& theClass.name & "] is a specialization of itself.")
+	end if
+	inheritanceLoop = retVal
+end function
+
+'Function name:	inheritanceLoopCheck
+'Author:		Åsmund Tjora
+'Date:			20170221
+'Purpose		Internal workings of function inhertianceLoop.  Register the class ID, compare list of ID's with superclass ID, recursively call itself for superclass.  
+'				Return "true" if class already has been registered (i.e. is a superclass of itself) 
+
+function inheritanceLoopCheck(theClass, checkedClassesList)
+	dim retVal
+	dim superClass as EA.Element
+	dim connector as EA.Connector
+	
+	retVal=false
+	checkedClassesList.Add(theClass.ElementID)	
+	for each connector in theClass.Connectors
+		if connector.Type = "Generalization" then
+			if theClass.ElementID = connector.ClientID then
+				set superClass = Repository.GetElementByID(connector.SupplierID)
+				dim checkedClassID
+				for each checkedClassID in checkedClassesList
+					if checkedClassID = superClass.ElementID then retVal = true
+				next
+				if not retVal then retVal=inheritanceLoopCheck(superClass, checkedClassesList)
+			end if
+		end if
+	next
+	
+	inheritanceLoopCheck = retVal
+end function
+
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Sub name: 		CheckDefinition
 'Author: 		Magnus Karge
