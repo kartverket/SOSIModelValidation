@@ -72,6 +72,8 @@
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
+'	/req/uml/structure
+'			Check that all abstract classes in application schema has at least one subclass within the same schema.  Check that no classes in application schema has stereotype interface
 '   /anbefaling/1:
 '			Checks every initial values in codeLists and enumerations for a package. If one or more initial values are numeric in one list, 
 ' 			it return a warning message. 
@@ -177,12 +179,15 @@
 						loop
 						
 						if not abort then
+              
 							'Check model for script breaking structures
 							if scriptBreakingStructuresInModel(thePackage) then
 								Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
 								Session.Output("Aborting Script.")
 								exit sub
 							end if
+              
+              call populatePackageIDList(thePackage)
 
 							'For /krav/18:
 							set startPackage = thePackage
@@ -260,6 +265,27 @@
 end sub 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+ 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulatePackageIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170223
+'Purpose: 		Populate the globalPackageIDList variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+' 
+sub PopulatePackageIDList(rootPackage)
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set subPackageList = rootPackage.Packages
+	
+	globalPackageIDList.Add(rootPackage.PackageID)
+	for each subPackage in subPackageList
+		PopulatePackageIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+ 
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Function name: scriptBreakingStructuresInModel
 'Author: 		Åsmund Tjora
@@ -331,8 +357,6 @@ function inheritanceLoopCheck(theClass, checkedClassesList)
 end function
 
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
-
-
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
@@ -2394,6 +2418,45 @@ sub checkUtkast(thePackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkInstantiable
+' Author: Åsmund Tjora	
+' Date: 170223
+' Purpose: check that abstract classes has subclass within same application schema.  Check that no interface classes exists in application schema 
+' Input parameter:  theClass  The class that is checked
+
+sub checkInstantiable(theClass)
+	if (UCase(theClass.Stereotype) = "INTERFACE" or theClass.Type = "Interface") then
+		Session.Output("Error:  Class [«" &theClass.Stereotype& "» " &theClass.Name& "].  Interface stereotype for classes is not allowed in ApplicationSchema. [/req/uml/structure]")
+		globalErrorCounter = globalErrorCounter + 1
+	end if
+	if theClass.Abstract = "1" then
+		dim connector as EA.Connector
+		dim hasSpecializations
+		dim specInSameApplicationSchema
+		hasSpecializations=false
+		specInSameApplicationSchema=false
+		for each connector in theClass.Connectors
+			if connector.Type = "Generalization" then
+				if theClass.ElementID = connector.SupplierID then
+					hasSpecializations=true					
+					dim subClass as EA.Element
+					dim pkID
+					set subClass = Repository.GetElementByID(connector.ClientID)
+					for each pkID in globalPackageIDList
+						if subClass.PackageID = pkID then specInSameApplicationSchema=true
+					next
+				end if
+			end if
+		next
+		if not (hasSpecializations and specInSameApplicationSchema) then
+			Session.Output("Error: Class [«" &theClass.Stereotype& "» " &theClass.Name& "]. Abstract class does not have any instantiable specializations in the ApplicationSchema. [/req/uml/structure]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+	end if
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2495,7 +2558,11 @@ sub FindInvalidElementsInPackage(package)
 				
 		'check elements' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide]
 		Call checkStereotypes(currentElement)	
- 				 
+ 				
+		if (currentElement.Type="Class" or currentElement.Type="Interface") then
+			call checkInstantiable(currentElement)
+		end if
+				
 		'Is the currentElement of type Class and stereotype codelist or enumeration, check the initial values are numeric or not (/anbefaling/1)
 		if ((currentElement.Type = "Class") and (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION") Or currentElement.Type = "Enumeration") then
 			call checkNumericinitialValues(currentElement)
@@ -2840,5 +2907,9 @@ dim FeatureTypeNames
 Set FeatureTypeNames = CreateObject("System.Collections.ArrayList")
 dim FeatureTypeElementIDs
 Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of the starting package and all subpackages
+dim globalPackageIDList
+set globalPackageIDList=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
