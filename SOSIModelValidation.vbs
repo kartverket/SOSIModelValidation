@@ -186,8 +186,9 @@
 								Session.Output("Aborting Script.")
 								exit sub
 							end if
-              
-              call populatePackageIDList(thePackage)
+							
+							call populatePackageIDList(thePackage)
+							call populateClassifierIDList(thePackage)
 
 							'For /krav/18:
 							set startPackage = thePackage
@@ -284,7 +285,30 @@ sub PopulatePackageIDList(rootPackage)
 	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
- 
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulateClassifierIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170228
+'Purpose: 		Populate the globalListAllClassifierIDsInApplicationSchema variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+
+sub PopulateClassifierIDList(rootPackage)
+	dim containedElementList as EA.Collection
+	dim containedElement as EA.Element
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set containedElementList = rootPackage.Elements
+	set subPackageList = rootPackage.Packages
+	
+	for each containedElement in containedElementList
+		globalListAllClassifierIDsInApplicationSchema.Add(containedElement.ElementID)
+	next
+	for each subPackage in subPackageList
+		PopulateClassifierIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Function name: scriptBreakingStructuresInModel
@@ -2967,5 +2991,8 @@ Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
 'global variable containing list of the starting package and all subpackages
 dim globalPackageIDList
 set globalPackageIDList=CreateObject("System.Collections.ArrayList")
+
+dim globalListAllClassifierIDsInApplicationSchema
+set globalListAllClassifierIDsInApplicationSchema=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
