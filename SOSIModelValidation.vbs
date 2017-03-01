@@ -1,4 +1,4 @@
-﻿option explicit 
+﻿﻿option explicit 
  
  !INC Local Scripts.EAConstants-VBScript 
  
@@ -2456,6 +2456,62 @@ sub checkInstantiable(theClass)
 	end if
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: getElementIDsOfExternalElements
+' Author: Magnus Karge
+' Date: 20170228
+' Purpose: 	to collect the IDs of all elements not part of the applicationSchema package but referenced from elements in
+'			thePackage or subpackages (e.g. via associations or types of attributes)
+' Input parameter:  thePackage none, uses global variable startPackage and xxx
+
+function getElementIDsOfExternalElements(thePackage)
+	
+	dim 
+	dim subpackages as EA.Collection 
+	set subpackages = thePackage.Packages 'collection of packages that belong to the start package	
+			
+	'Navigate the package collection and call the getElementIDsOfExternalElements function for each of them 
+	dim p 
+	for p = 0 to subpackages.Count - 1 
+		dim currentPackage as EA.Package 
+		set currentPackage = subpackages.GetAt( p ) 
+		getElementIDsOfExternalElements(currentPackage) 
+				
+		'constraints 
+		dim constraintPCollection as EA.Collection 
+		set constraintPCollection = currentPackage.Element.Constraints 
+ 			 
+		if constraintPCollection.Count > 0 then 
+			dim constraintPCounter 
+			for constraintPCounter = 0 to constraintPCollection.Count - 1 					 
+				dim currentPConstraint as EA.Constraint		 
+				set currentPConstraint = constraintPCollection.GetAt(constraintPCounter) 
+								
+				'check if the package got constraints that lack name or definition (/req/uml/constraint)								
+				Call checkConstraint(currentPConstraint, currentPackage)
+
+			next
+		end if	
+	next 
+ 			 
+ 	'------------------------------------------------------------------ 
+	'---ELEMENTS--- 
+	'------------------------------------------------------------------		 
+ 			 
+	' Navigate the elements collection, pick the classes, find the definitions/notes and do sth. with it 
+	'Session.Output( " number of elements in package: " & elements.Count) 
+	dim i 
+	for i = 0 to elements.Count - 1 
+		dim currentElement as EA.Element 
+		set currentElement = elements.GetAt( i ) 
+	
+	'check all attributes
+	'check all connectors
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
