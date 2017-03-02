@@ -189,6 +189,7 @@
 							
 							call populatePackageIDList(thePackage)
 							call populateClassifierIDList(thePackage)
+							call getElementIDsOfExternalReferencedElements(thePackage)
 
 							'For /krav/18:
 							set startPackage = thePackage
@@ -204,7 +205,19 @@
 							'------------------------------------------------------------------ 
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
-	
+							
+							'only for debugging - start:
+							Session.Output("-----DEBUG-----")
+							Session.Output("External referenced elements in list:")
+							dim externalReferencedElementID
+							for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
+								dim element as EA.Element
+								set element = Repository.GetElementByID(externalReferencedElementID)
+								Session.Output("Class: "& element.Name)
+							next
+							Session.Output("----End of list----")
+							'only for debugging - end
+							
 							'check uniqueness of featureType names
 							checkUniqueFeatureTypeNames()
 	
@@ -2483,41 +2496,28 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Function Name: getElementIDsOfExternalElements
+' Function Name: getElementIDsOfExternalReferencedElements
 ' Author: Magnus Karge
 ' Date: 20170228
 ' Purpose: 	to collect the IDs of all elements not part of the applicationSchema package but referenced from elements in
-'			thePackage or subpackages (e.g. via associations or types of attributes)
-' Input parameter:  thePackage none, uses global variable startPackage and xxx
+'			thePackage or subpackages (e.g. via associations or types of attributes) 
+'			populates globalListClassifierIDsOfExternalReferencedElements
+' Input parameter:  thePackage:EA.Package, uses global variable globalListAllClassifierIDsInApplicationSchema
 
-function getElementIDsOfExternalElements(thePackage)
-	
-	dim 
-	dim subpackages as EA.Collection 
-	set subpackages = thePackage.Packages 'collection of packages that belong to the start package	
+sub getElementIDsOfExternalReferencedElements(thePackage)
 			
-	'Navigate the package collection and call the getElementIDsOfExternalElements function for each of them 
+	dim elementsInPackage as EA.Collection
+	set elementsInPackage = thePackage.Elements
+	
+	dim subpackages as EA.Collection 
+	set subpackages = thePackage.Packages 'collection of packages that belong to thePackage	
+			
+	'Navigate the package collection and call the getElementIDsOfExternalElements sub for each of the packages 
 	dim p 
 	for p = 0 to subpackages.Count - 1 
 		dim currentPackage as EA.Package 
 		set currentPackage = subpackages.GetAt( p ) 
-		getElementIDsOfExternalElements(currentPackage) 
-				
-		'constraints 
-		dim constraintPCollection as EA.Collection 
-		set constraintPCollection = currentPackage.Element.Constraints 
- 			 
-		if constraintPCollection.Count > 0 then 
-			dim constraintPCounter 
-			for constraintPCounter = 0 to constraintPCollection.Count - 1 					 
-				dim currentPConstraint as EA.Constraint		 
-				set currentPConstraint = constraintPCollection.GetAt(constraintPCounter) 
-								
-				'check if the package got constraints that lack name or definition (/req/uml/constraint)								
-				Call checkConstraint(currentPConstraint, currentPackage)
-
-			next
-		end if	
+		getElementIDsOfExternalReferencedElements(currentPackage) 
 	next 
  			 
  	'------------------------------------------------------------------ 
@@ -2526,13 +2526,56 @@ function getElementIDsOfExternalElements(thePackage)
  			 
 	' Navigate the elements collection, pick the classes, find the definitions/notes and do sth. with it 
 	'Session.Output( " number of elements in package: " & elements.Count) 
-	dim i 
-	for i = 0 to elements.Count - 1 
+	dim e 
+	for e = 0 to elementsInPackage.Count - 1 
 		dim currentElement as EA.Element 
-		set currentElement = elements.GetAt( i ) 
-	
-	'check all attributes
-	'check all connectors
+		set currentElement = elementsInPackage.GetAt( e ) 
+		
+		'check all attributes
+		dim listOfAttributes as EA.Collection
+		set listOfAttributes = currentElement.Attributes
+		dim a
+		for a = 0 to listOfAttributes.Count - 1 
+			dim currentAttribute as EA.Attribute
+			set currentAttribute = listOfAttributes.GetAt(a)
+			'check if classifier id is connected to a base type - not a primitive type (not 0) and if it 
+			'is part of globalListAllClassifierIDsInApplicationSchema
+			if not currentAttribute.ClassifierID = 0 AND not globalListAllClassifierIDsInApplicationSchema.contains(currentAttribute.ClassifierID) then
+				Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] not in list globalListAllClassifierIDsInApplicationSchema and not 0") 
+				if not globalListClassifierIDsOfExternalReferencedElements.Contains(currentAttribute.ClassifierID) then
+					'add to list if not contained already
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentAttribute.ClassifierID)
+					Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				else
+					Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			else 
+				Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListAllClassifierIDsInApplicationSchema or 0") 
+			end if
+		next	
+		
+		'check all connectors
+		dim listOfConnectors as EA.Collection
+		set listOfConnectors = currentElement.Connectors
+		dim c
+		for c = 0 to listOfConnectors.Count - 1 
+			dim currentConnector as EA.Connector
+			set currentConnector = listOfConnectors.GetAt(c)
+			'check if this element is on source side of connector - if not ignore (could be external connectors pointing to the element)
+			' and if id is in globalListAllClassifierIDsInApplicationSchema
+			if currentElement.ElementID = currentConnector.ClientID AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
+				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
+					Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				else
+					Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			else
+				Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
+			end if
+		next	
+		
+	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2992,7 +3035,14 @@ Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
 dim globalPackageIDList
 set globalPackageIDList=CreateObject("System.Collections.ArrayList")
 
+'global variable containing list of all classifier ids within the application schema
 dim globalListAllClassifierIDsInApplicationSchema
 set globalListAllClassifierIDsInApplicationSchema=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of all classifier ids of elements not part of the application schema but
+'referenced from elements within the application schema 
+dim globalListClassifierIDsOfExternalReferencedElements
+set globalListClassifierIDsOfExternalReferencedElements=CreateObject("System.Collections.ArrayList")
+
 
 OnProjectBrowserScript 
