@@ -9,7 +9,7 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.1.1
+' Version: 1.1.2
 ' Date: 2017-02-02 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -28,14 +28,16 @@
 '	/krav/12: 
 '			If datatypes have associations then the datatype shall only be target in a composition 
 '  	/krav/14:
-'			Iso 19103 Requirement 14 -inherit from same stereotypes
+'			Iso 19103 Requirement 14 - inherit from same stereotypes
 '  	/krav/15:
-'			Iso 19103 Requirement 15 -known stereotypes
-'  	/krav/16
-'			Iso 19103 Requirement 16 -legal NCNames case-insesnitively unique within their namespace
-'  	/krav/18
-'			Iso 19103 Requirement 18 -all elements shall show all structures in at least one diagram
+'			Iso 19103 Requirement 15 - known stereotypes
+'  	/krav/16:
+'			Iso 19103 Requirement 16 - legal NCNames case-insesnitively unique within their namespace
+'  	/krav/18:
+'			Iso 19103 Requirement 18 - all elements shall show all structures in at least one diagram
 '			Current version test all classes and their attributes in diagrams, not yet roles and inheritance.
+'	/krav/19:
+'			Iso 19103 Requirement 19 - all classes shall have a definition describing its intended meaning or semantics.
 '	/krav/definisjoner: 
 '			Same as krav/3 but checks also for definitions of packages and constraints
 '			The part that checks definitions of constraints is implemented in sub checkConstraint	
@@ -366,8 +368,10 @@ end function
 'Purpose: 		Check if the provided argument for input parameter theObject fulfills the requirements in [krav/3]: 
 '				Find elements (classes, attributes, navigable association roles, operations, datatypes)  
 '				without definition (notes/rolenotes) 
-'				and [krav/definisjoner]: 
+'				[krav/definisjoner]: 
 '				Find packages and constraints without definition
+'				[krav/19]:
+'				All classes shall have a definition
 '@param[in] 	theObject (EA.ObjectType) The object to check,  
 '				supposed to be one of the following types: EA.Attribute, EA.Method, EA.Connector, EA.Element 
  
@@ -385,7 +389,7 @@ end function
  			set currentElement = theObject 
  			 
  			If currentElement.Notes = "" then 
- 				Session.Output("Error: Class [«" &getStereotypeOfClass(currentElement)& "» "& currentElement.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]")	 
+ 				Session.Output("Error: Class [«" &getStereotypeOfClass(currentElement)& "» "& currentElement.Name & "] has no definition. [/krav/3], [/krav/definisjoner] & [/krav/19]")	 
  				globalErrorCounter = globalErrorCounter + 1 
  			end if 
  		Case otAttribute 
