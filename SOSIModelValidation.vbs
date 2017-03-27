@@ -2457,6 +2457,62 @@ sub checkInstantiable(theClass)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkPackageDependency
+' Author: Åsmund Tjora, Magnus Karge
+' Date: 170301
+' Purpose: Check that elements in external packages are accessible through package dependencies.  Check that dependency diagrams show these dependencies. 
+' Input parameter:  thePackage:  Package to be checked
+
+sub checkPackageDependency(thePackage)
+	dim externalElementList
+	set externalElementList=CreateObject("System.Collections.ArrayList")
+	dim packageDependencies
+	set packageDependencies=CreateObject("System.Collection.ArrayList")
+	dim packageDependenciesShown
+	set packageDependenciesShown=CreateObject("System.Collection.ArrayList")
+	
+	'get external elements (function or sub by Magnus)
+	'externalElementList=getElementIDsOfExternalElements(thePackage)
+	
+	'get external packages (function or sub by Magnus)
+	'call findPackagesToBeReferenced(externalElementList)
+	
+	'get package dependencies declared in ApplicationSchema model,
+	'get package dependencies actually shown in package diagrams in model
+	findPackageDependencies(thePackage, packageDependencies)
+	findPackageDependenciesShown(thePackage, packageDependenciesShown)
+
+end sub
+
+sub findPackageDependencies(thePackage, dependencyList)
+	dim connectorList as EA.Collection
+	dim packageConnector as EA.Connector
+	dim dependee as EA.Package
+	
+	connectorList=thePackage.Connectors
+	
+	for each packageConnector in connectorList
+		if packageConnector.Type="Usage" or packageConnector.Type="Package" then
+			if thePackage.PackageID = packageConnector.ClientID then
+				dependee = Repository.GetPackageByID(package.Connector.SupplierID)
+				dependencyList.Add(dependee.PackageID)
+				findPackageDependencies(dependee, dependencyList)
+			end if
+		end if
+	next
+end sub
+
+sub findPackageDependenciesShown(thePackage, dependencyList)
+	dim subPackages as EA.Collection
+	'find list of package diagrams
+	'in each package diagram find package corresponding to this application schema
+	'find shown links to other packages
+	'run findPackageDependencies on the linked to packages (i.e. do not care if dependee packages show their dependencies in diagrams)
+	
+	
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
