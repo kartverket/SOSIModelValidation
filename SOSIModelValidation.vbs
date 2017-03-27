@@ -2505,9 +2505,9 @@ sub checkPackageDependency(thePackage)
 	dim externalElementList
 	set externalElementList=CreateObject("System.Collections.ArrayList")
 	dim packageDependencies
-	set packageDependencies=CreateObject("System.Collection.ArrayList")
+	set packageDependencies=CreateObject("System.Collections.ArrayList")
 	dim packageDependenciesShown
-	set packageDependenciesShown=CreateObject("System.Collection.ArrayList")
+	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
 	
 	'get external elements (function or sub by Magnus)
 	'externalElementList=getElementIDsOfExternalElements(thePackage)
@@ -2517,24 +2517,30 @@ sub checkPackageDependency(thePackage)
 	
 	'get package dependencies declared in ApplicationSchema model,
 	'get package dependencies actually shown in package diagrams in model
-	findPackageDependencies(thePackage, packageDependencies)
-	findPackageDependenciesShown(thePackage, packageDependenciesShown)
+
+	call findPackageDependencies(thePackage.Element, packageDependencies)
+	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
 
 end sub
 
-sub findPackageDependencies(thePackage, dependencyList)
+sub findPackageDependencies(thePackageElement, dependencyList)
 	dim connectorList as EA.Collection
 	dim packageConnector as EA.Connector
-	dim dependee as EA.Package
+	dim dependee as EA.Element
 	
-	connectorList=thePackage.Connectors
+	set connectorList=thePackageElement.Connectors
 	
 	for each packageConnector in connectorList
+		Session.Output("DEBUG: Investigating connector type " & packageConnector.Type & " from package " & thePackageElement.Name & ". ")
 		if packageConnector.Type="Usage" or packageConnector.Type="Package" then
-			if thePackage.PackageID = packageConnector.ClientID then
-				dependee = Repository.GetPackageByID(package.Connector.SupplierID)
-				dependencyList.Add(dependee.PackageID)
-				findPackageDependencies(dependee, dependencyList)
+			Session.Output("DEBUG:  Hooray, Current Package Element ID = " & thePackageElement.ElementID & ". Client ID = " &packageConnector.ClientID& ", Supplier ID = " &packageConnector.SupplierID& ".")
+			if thePackageElement.ElementID = packageConnector.ClientID then
+			
+				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
+
+				Session.Output("DEBUG:  Added " &dependee.Name& " with ID " &dependee.ElementID& " to the dependency list")
+				dependencyList.Add(dependee.ElementID)
+				call findPackageDependencies(dependee, dependencyList)
 			end if
 		end if
 	next
