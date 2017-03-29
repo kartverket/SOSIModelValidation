@@ -2520,7 +2520,7 @@ sub checkPackageDependency(thePackage)
 
 	call findPackageDependencies(thePackage.Element, packageDependencies)
 	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
-
+	
 end sub
 
 sub findPackageDependencies(thePackageElement, dependencyList)
@@ -2531,14 +2531,9 @@ sub findPackageDependencies(thePackageElement, dependencyList)
 	set connectorList=thePackageElement.Connectors
 	
 	for each packageConnector in connectorList
-		Session.Output("DEBUG: Investigating connector type " & packageConnector.Type & " from package " & thePackageElement.Name & ". ")
 		if packageConnector.Type="Usage" or packageConnector.Type="Package" then
-			Session.Output("DEBUG:  Hooray, Current Package Element ID = " & thePackageElement.ElementID & ". Client ID = " &packageConnector.ClientID& ", Supplier ID = " &packageConnector.SupplierID& ".")
 			if thePackageElement.ElementID = packageConnector.ClientID then
-			
 				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
-
-				Session.Output("DEBUG:  Added " &dependee.Name& " with ID " &dependee.ElementID& " to the dependency list")
 				dependencyList.Add(dependee.ElementID)
 				call findPackageDependencies(dependee, dependencyList)
 			end if
@@ -2546,16 +2541,57 @@ sub findPackageDependencies(thePackageElement, dependencyList)
 	next
 end sub
 
+sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID, dependencyList)
+	'recursively traverse the packages in a diagram in order to get the full dependencyList.
+	dim elementList
+	set elementList=diagram.DiagramObjects
+	dim diagramElement
+	dim modelElement
+	dim linkList
+	set linkList=diagram.diagramLinks
+	dim diagramLink
+	dim modelLink
+	
+	for each diagramLink in linkList
+		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
+		if modelLink.Type = "Package" or modelLink.Type = "Usage" then
+			if modelLink.ClientID = investigatedPackageElementID then
+				dependencyList.Add(modelLink.SupplierID)
+				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
+				if diagramLink.IsHidden and globalLogLevelIsWarning then
+					dim supplier
+					dim client
+					set supplier = Repository.GetElementByID(modelLink.SupplierID)
+					set client = Repository.GetElementByID(modelLink.ClientID)
+					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
+				end if
+			end if
+		end if
+	next
+end sub
+
 sub findPackageDependenciesShown(thePackage, dependencyList)
-	dim subPackages as EA.Collection
-	'find list of package diagrams
-	'in each package diagram find package corresponding to this application schema
-	'find shown links to other packages
-	'run findPackageDependencies on the linked to packages (i.e. do not care if dependee packages show their dependencies in diagrams)
-	
-	
+	dim thePackageElementID
+	dim diagramList
+	dim elementList
+	dim linkList
+	dim diagram
+	dim diagramElement
+	dim modelElement
+	dim diagramLink
+	dim modelLink
+
+	set diagramList=thePackage.Diagrams
+	thePackageElementID=thePackage.Element.ElementID
+
+	for each diagram in diagramList
+		if diagram.Type="Package" then
+			call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
+		end if
+	next	
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Function Name: getElementIDsOfExternalReferencedElements
