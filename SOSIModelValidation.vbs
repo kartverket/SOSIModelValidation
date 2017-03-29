@@ -2497,7 +2497,7 @@ end sub
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkPackageDependency
 ' Author: Åsmund Tjora, Magnus Karge
-' Date: 170301
+' Date: 170329
 ' Purpose: Check that elements in external packages are accessible through package dependencies.  Check that dependency diagrams show these dependencies. 
 ' Input parameter:  thePackage:  Package to be checked
 
@@ -2516,11 +2516,29 @@ sub checkPackageDependency(thePackage)
 	'call findPackagesToBeReferenced(externalElementList)
 	
 	'get package dependencies declared in ApplicationSchema model,
-	'get package dependencies actually shown in package diagrams in model
-
 	call findPackageDependencies(thePackage.Element, packageDependencies)
+	'get package dependencies actually shown in package diagrams in model
 	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
 	
+	
+	dim packageID
+	dim investigatedPackage
+	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
+	' for each package in packageExternalPackages
+	'  if not packageDependenciesShown.Contains(package) then
+	'     if not packageDependenceis.Contains(package) then
+	'       Session.Output("Error, use element from package not in model dependenceis")
+	'     else
+	'       Session.Output("Error, use element from package not shown in package diagram")
+	'     end if
+	'  end if
+	for each packageID in packageDependencies
+		set investigatedPackage=Repository.GetElementByID(packageID)
+		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Warning: Dependency to package [«" & investigatedPackage.Stereotype & "» " & investigatedPackage.Name & "] found.  Dependencies shall only be to ApplicationSchema packages or Standard schemas. [req/uml/integration]")
+			globalWarningCounter = globalWarningCounter + 1
+		end if
+	next
 end sub
 
 sub findPackageDependencies(thePackageElement, dependencyList)
@@ -2591,7 +2609,6 @@ sub findPackageDependenciesShown(thePackage, dependencyList)
 	next	
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
-
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Function Name: getElementIDsOfExternalReferencedElements
@@ -2704,6 +2721,7 @@ sub FindInvalidElementsInPackage(package)
 
 	call checkEndingOfPackageName(package)
 	call checkUtkast(package)
+	call checkPackageDependency(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
