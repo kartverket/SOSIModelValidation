@@ -1,4 +1,4 @@
-﻿﻿option explicit 
+﻿option explicit 
  
  !INC Local Scripts.EAConstants-VBScript 
  
@@ -2515,6 +2515,130 @@ sub checkInstantiable(theClass)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkPackageDependency
+' Author: Åsmund Tjora, Magnus Karge
+' Date: 170329
+' Purpose: Check that elements in external packages are accessible through package dependencies.  Check that dependency diagrams show these dependencies. 
+' Input parameter:  thePackage:  Package to be checked
+
+sub checkPackageDependency(thePackage)
+	dim externalElementList
+	set externalElementList=CreateObject("System.Collections.ArrayList")
+	dim packageDependencies
+	set packageDependencies=CreateObject("System.Collections.ArrayList")
+	dim packageDependenciesShown
+	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
+	
+	'get external elements (function or sub by Magnus)
+	'externalElementList=getElementIDsOfExternalElements(thePackage)
+	
+	'get external packages (function or sub by Magnus)
+	'call findPackagesToBeReferenced(externalElementList)
+	
+	'get package dependencies declared in ApplicationSchema model,
+	call findPackageDependencies(thePackage.Element, packageDependencies)
+	'get package dependencies actually shown in package diagrams in model
+	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
+	
+	'compare "real" dependencies made by referencing out-of-package elements with
+	'package dependencies declared in model and dependencies shown in diagrams
+	
+	dim packageID
+	dim investigatedPackage
+	dim investigatedElement
+	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
+	' for i 0 to referencedExternalPackages.Count-1
+	'  packageID=referencedExternalPackages[i]
+	'  if not packageDependenciesShown.Contains(packageID) then
+	'     elementID = referencedExternalElements[i]
+	'	  set investigatedPackage=Repository.GetElementByID(packageID)
+	'	  set investigatedElement=Repository.GetElementByID(elementID)
+	'     if not packageDependenceis.Contains(package) then
+	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+	'     else
+	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
+	'     end if
+	'  end if
+	
+	'check that dependencies are between ApplicationSchema packages.
+	for each packageID in packageDependencies
+		set investigatedPackage=Repository.GetElementByID(packageID)
+		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Warning: Dependency to package [«" & investigatedPackage.Stereotype & "» " & investigatedPackage.Name & "] found.  Dependencies shall only be to ApplicationSchema packages or Standard schemas. [req/uml/integration]")
+			globalWarningCounter = globalWarningCounter + 1
+		end if
+	next
+end sub
+
+sub findPackageDependencies(thePackageElement, dependencyList)
+	dim connectorList as EA.Collection
+	dim packageConnector as EA.Connector
+	dim dependee as EA.Element
+	
+	set connectorList=thePackageElement.Connectors
+	
+	for each packageConnector in connectorList
+		if packageConnector.Type="Usage" or packageConnector.Type="Package" then
+			if thePackageElement.ElementID = packageConnector.ClientID then
+				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
+				dependencyList.Add(dependee.ElementID)
+				call findPackageDependencies(dependee, dependencyList)
+			end if
+		end if
+	next
+end sub
+
+sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID, dependencyList)
+	'recursively traverse the packages in a diagram in order to get the full dependencyList.
+	dim elementList
+	set elementList=diagram.DiagramObjects
+	dim diagramElement
+	dim modelElement
+	dim linkList
+	set linkList=diagram.diagramLinks
+	dim diagramLink
+	dim modelLink
+	
+	for each diagramLink in linkList
+		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
+		if modelLink.Type = "Package" or modelLink.Type = "Usage" then
+			if modelLink.ClientID = investigatedPackageElementID then
+				dependencyList.Add(modelLink.SupplierID)
+				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
+				if diagramLink.IsHidden and globalLogLevelIsWarning then
+					dim supplier
+					dim client
+					set supplier = Repository.GetElementByID(modelLink.SupplierID)
+					set client = Repository.GetElementByID(modelLink.ClientID)
+					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
+				end if
+			end if
+		end if
+	next
+end sub
+
+sub findPackageDependenciesShown(thePackage, dependencyList)
+	dim thePackageElementID
+	dim diagramList
+	dim elementList
+	dim linkList
+	dim diagram
+	dim diagramElement
+	dim modelElement
+	dim diagramLink
+	dim modelLink
+
+	set diagramList=thePackage.Diagrams
+	thePackageElementID=thePackage.Element.ElementID
+
+	for each diagram in diagramList
+		if diagram.Type="Package" then
+			call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
+		end if
+	next	
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Function Name: findPackagesToBeReferenced
@@ -2697,6 +2821,7 @@ sub FindInvalidElementsInPackage(package)
 
 	call checkEndingOfPackageName(package)
 	call checkUtkast(package)
+	call checkPackageDependency(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
