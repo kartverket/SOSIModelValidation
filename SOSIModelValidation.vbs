@@ -189,6 +189,7 @@
 							
 							call populatePackageIDList(thePackage)
 							call populateClassifierIDList(thePackage)
+							call findPackageDependencies(thePackage.Element)
 							call getElementIDsOfExternalReferencedElements(thePackage)
 							call findPackagesToBeReferenced()
 							
@@ -2523,29 +2524,21 @@ end sub
 ' Input parameter:  thePackage:  Package to be checked
 
 sub checkPackageDependency(thePackage)
-	dim externalElementList
-	set externalElementList=CreateObject("System.Collections.ArrayList")
-	dim packageDependencies
-	set packageDependencies=CreateObject("System.Collections.ArrayList")
+
+	'dim packageDependencies - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
+	'set packageDependencies=CreateObject("System.Collections.ArrayList")
+	'packageDependenciesShown - List of package dependencies shown in package diagrams
 	dim packageDependenciesShown
 	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
-	
-	Session.Output("!DEBUG! Entered CHeckPackageDependency")
-	
-	'get external elements (function or sub by Magnus)
-	'externalElementList=getElementIDsOfExternalElements(thePackage)
-	
-	'get external packages (function or sub by Magnus)
-	'call findPackagesToBeReferenced(externalElementList)
-	
-	'get package dependencies declared in ApplicationSchema model,
-	call findPackageDependencies(thePackage.Element, packageDependencies)
+
+	'get package dependencies declared in ApplicationSchema model
+	'call findPackageDependencies(thePackage.Element, packageDependencies) - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
 	'get package dependencies actually shown in package diagrams in model
 	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
 	
+	'---
 	'compare "real" dependencies made by referencing out-of-package elements with
 	'package dependencies declared in model and dependencies shown in diagrams
-	
 	dim packageElementID
 	dim investigatedPackage
 	dim investigatedElement
@@ -2562,7 +2555,7 @@ sub checkPackageDependency(thePackage)
 			elementID = globalListClassifierIDsOfExternalReferencedElements(i)
 			set investigatedPackage=Repository.GetElementByID(packageElementID)
 			set investigatedElement=Repository.GetElementByID(elementID)
-			if not packageDependencies.Contains(packageElementID) then
+			if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
 				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
 			else
 				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
@@ -2571,8 +2564,8 @@ sub checkPackageDependency(thePackage)
 	next
 	
 	'check that dependencies are between ApplicationSchema packages.
-	for each packageID in packageDependencies
-		set investigatedPackage=Repository.GetElementByID(packageID)
+	for each packageElementID in globalListPackageElementIDsOfPackageDependencies
+		set investigatedPackage=Repository.GetElementByID(packageElementID)
 		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
 			Session.Output("Warning: Dependency to package [«" & investigatedPackage.Stereotype & "» " & investigatedPackage.Name & "] found.  Dependencies shall only be to ApplicationSchema packages or Standard schemas. [req/uml/integration]")
 			globalWarningCounter = globalWarningCounter + 1
@@ -2580,23 +2573,20 @@ sub checkPackageDependency(thePackage)
 	next
 end sub
 
-sub findPackageDependencies(thePackageElement, dependencyList)
+sub findPackageDependencies(thePackageElement)
 	dim connectorList as EA.Collection
 	dim packageConnector as EA.Connector
 	dim dependee as EA.Element
 	
 	set connectorList=thePackageElement.Connectors
 	
-	
-	
 	for each packageConnector in connectorList
-		Session.Output("!DEBUG! packageConnector.Type: "&packageConnector.Type)
 		if packageConnector.Type="Usage" or packageConnector.Type="Package" or packageConnector.Type="Dependency" then
 			if thePackageElement.ElementID = packageConnector.ClientID then
 				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
-				dependencyList.Add(dependee.ElementID)
+				globalListPackageElementIDsOfPackageDependencies.Add(dependee.ElementID)
 				Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
-				call findPackageDependencies(dependee, dependencyList)
+				call findPackageDependencies(dependee)
 			end if
 		end if
 	next
@@ -2615,7 +2605,7 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 	
 	for each diagramLink in linkList
 		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
-		if modelLink.Type = "Package" or modelLink.Type = "Usage" then
+		if modelLink.Type = "Package" or modelLink.Type = "Usage" or modelLink.Type="Dependency" then
 			if modelLink.ClientID = investigatedPackageElementID then
 				dependencyList.Add(modelLink.SupplierID)
 				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
@@ -3275,5 +3265,8 @@ set globalListClassifierIDsOfExternalReferencedElements=CreateObject("System.Col
 
 dim globalListPackageIDsOfPackagesToBeReferenced
 set globalListPackageIDsOfPackagesToBeReferenced=CreateObject("System.Collections.ArrayList")
+
+dim globalListPackageElementIDsOfPackageDependencies
+set globalListPackageElementIDsOfPackageDependencies=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
