@@ -9,7 +9,7 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.1.1
+' Version: 1.1.1.1337
 ' Date: 2017-02-02 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -1521,6 +1521,37 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Sub Name: req/general/feature
+' Author: Tore Johnsen
+' Date: 2017-02-22
+' Purpose: Checks that no classes with stereotype <<FeatureType>> inherits from a class named GM_Object or TM_Object.
+' @param[in]: currentElement, startClass
+
+sub reqGeneralFeature(currentElement, startClass)
+	
+	dim superClass as EA.Element
+	dim connector as EA.Connector
+
+	for each connector in currentElement.Connectors
+		if connector.Type = "Generalization" then
+			if UCASE(currentElement.Stereotype) = "FEATURETYPE" then
+				if currentElement.ElementID = connector.ClientID then
+					set superClass = Repository.GetElementByID(connector.SupplierID)
+
+					if UCASE(superClass.Name) = "GM_OBJECT" or UCASE(superClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(superClass.Stereotype) = "FEATURETYPE" then
+					session.output("Error: Class [" & startClass.Name & "] inherits from class [" & superclass.name & "] [req/general/feature]")
+					globalErrorCounter = globalErrorCounter + 1
+					else call reqGeneralFeature(superClass, startClass)
+					end if
+				end if
+			end if
+		end if
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: krav15-stereotyper
 ' Author: Kent Jonsrud
 ' Date: 2016-08-05
@@ -2570,7 +2601,8 @@ sub FindInvalidElementsInPackage(package)
 
 		' check if inherited stereotypes are all the same
 		Call krav14(currentElement)
-
+		' check that no class inherits from a class named GM_Object or TM_Object
+		Call reqGeneralFeature(currentElement, currentElement)
 		' ---ALL CLASSIFIERS---
 		'Iso 19103 Requirement 16 - unique NCNames of all properties within the classifier.
 		'Inherited properties  also included, strictly not an error situation but implicit redefinition is not well supported anyway
