@@ -190,7 +190,8 @@
 							call populatePackageIDList(thePackage)
 							call populateClassifierIDList(thePackage)
 							call getElementIDsOfExternalReferencedElements(thePackage)
-
+							call findPackagesToBeReferenced()
+							
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -206,17 +207,37 @@
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
 							
-							'only for debugging - start:
+							'---->only for debugging - start:<----
 							Session.Output("-----DEBUG-----")
-							Session.Output("External referenced elements in list:")
+							Session.Output("External referenced elements in list: " & globalListClassifierIDsOfExternalReferencedElements.count)
 							dim externalReferencedElementID
+							dim counter
+							counter = 1
 							for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
+								Session.Output("Element nr. " & counter)
 								dim element as EA.Element
 								set element = Repository.GetElementByID(externalReferencedElementID)
 								Session.Output("Class: "& element.Name)
+								counter = counter + 1
 							next
 							Session.Output("----End of list----")
-							'only for debugging - end
+							
+							
+							Session.Output("-----DEBUG-----")
+							Session.Output("External referenced packages in list: " & globalListPackageIDsOfPackagesToBeReferenced.count)
+							dim externalReferencedPackageID
+							dim packageCounter
+							packageCounter = 1
+							for each externalReferencedPackageID in globalListPackageIDsOfPackagesToBeReferenced
+								Session.Output("Element nr. " & packageCounter)
+								dim package as EA.Package
+								set package = Repository.GetPackageByID(externalReferencedPackageID)
+								Session.Output("Package: "& package.Name)
+								packageCounter = packageCounter + 1
+							next
+							Session.Output("----End of list----")
+							
+							'---->only for debugging - end<----
 							
 							'check uniqueness of featureType names
 							checkUniqueFeatureTypeNames()
@@ -2620,6 +2641,76 @@ end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: findPackagesToBeReferenced
+' Author: Magnus Karge
+' Date: 20170303
+' Purpose: 	to collect the IDs of all packages the applicationSchema package is dependent on
+'			populates globalListPackageIDsOfPackagesToBeReferenced
+' Input parameter:  none, uses global variable globalListClassifierIDsOfExternalReferencedElements
+
+sub findPackagesToBeReferenced()
+	dim externalReferencedElementID
+	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.size)
+	dim debugcount
+	debugcount=0
+	dim currentExternalElement as EA.Element
+	dim arrayCounter
+	Session.Output("!DEBUG! Elements in list: "& globalListClassifierIDsOfExternalReferencedElements.count)
+	for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
+		debugcount = debugcount + 1
+		Session.Output("!DEBUG! Iteration of for: "& debugcount)
+		Session.Output("!DEBUG! externalReferencedElementID: "& externalReferencedElementID)
+		set currentExternalElement = Repository.GetElementByID(externalReferencedElementID)
+		dim parentPackageID
+		parentPackageID = currentExternalElement.PackageID 'here the parentPackageID is the ID of the package containing the external element
+		
+		dim parentPackageIsApplicationSchema
+		parentPackageIsApplicationSchema = false
+		dim parentPackage as EA.Package
+		if (not parentPackageID = 0) then 'meaning that there is a package
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			
+			'check if parentPackage is package and not model
+			if (not parentPackage.IsModel) then
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+				end if
+			end if	
+		end if
+		
+		dim tempPackageIDOfPotentialPackageToBeReferenced
+		tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+		
+		'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0) or finding a package with stereotype applicationSchema
+		do while ((not parentPackageID = 0) and (not parentPackageIsApplicationSchema) and (not parentPackage.IsModel)) 
+			parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
+			Session.Output("!DEBUG! parentPackageID = "& parentPackageID)
+			'Session.Output("!DEBUG! parentPackageName = "& parentPackageID)
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			Session.Output("!DEBUG! parentPackageName = "& parentPackage.Name & " IsModel: "& parentPackage.IsModel)
+			
+			if (not parentPackage.IsModel) then 
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+					tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+				end if	
+			end if
+			Session.Output("!DEBUG! parentPackageID = "& parentPackageID & "   parentPackageIsApplicationSchema = "&parentPackageIsApplicationSchema &" parentPackageName: "&parentPackage.Name)
+		loop
+		Session.Output("!DEBUG! out of loop")
+		'add the temporal package ID to the global list
+		'the temporal package ID is either the package containing the external element
+		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
+		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
+		
+		Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
+		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "&externalReferencedElementID)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Function Name: getElementIDsOfExternalReferencedElements
 ' Author: Magnus Karge
 ' Date: 20170228
@@ -3169,5 +3260,7 @@ set globalListAllClassifierIDsInApplicationSchema=CreateObject("System.Collectio
 dim globalListClassifierIDsOfExternalReferencedElements
 set globalListClassifierIDsOfExternalReferencedElements=CreateObject("System.Collections.ArrayList")
 
+dim globalListPackageIDsOfPackagesToBeReferenced
+set globalListPackageIDsOfPackagesToBeReferenced=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
