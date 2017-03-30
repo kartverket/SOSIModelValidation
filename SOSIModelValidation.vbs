@@ -1,4 +1,4 @@
-﻿﻿option explicit 
+﻿option explicit 
  
  !INC Local Scripts.EAConstants-VBScript 
  
@@ -2520,18 +2520,27 @@ sub checkPackageDependency(thePackage)
 	'get package dependencies actually shown in package diagrams in model
 	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
 	
+	'compare "real" dependencies made by referencing out-of-package elements with
+	'package dependencies declared in model and dependencies shown in diagrams
 	
 	dim packageID
 	dim investigatedPackage
+	dim investigatedElement
 	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
-	' for each package in packageExternalPackages
-	'  if not packageDependenciesShown.Contains(package) then
+	' for i 0 to referencedExternalPackages.Count-1
+	'  packageID=referencedExternalPackages[i]
+	'  if not packageDependenciesShown.Contains(packageID) then
+	'     elementID = referencedExternalElements[i]
+	'	  set investigatedPackage=Repository.GetElementByID(packageID)
+	'	  set investigatedElement=Repository.GetElementByID(elementID)
 	'     if not packageDependenceis.Contains(package) then
-	'       Session.Output("Error, use element from package not in model dependenceis")
+	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
 	'     else
-	'       Session.Output("Error, use element from package not shown in package diagram")
+	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
 	'     end if
 	'  end if
+	
+	'check that dependencies are between ApplicationSchema packages.
 	for each packageID in packageDependencies
 		set investigatedPackage=Repository.GetElementByID(packageID)
 		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
