@@ -2457,6 +2457,26 @@ sub checkInstantiable(theClass)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		CheckSubPackageStereotype
+'Author: 		Åsmund Tjora
+'Date: 			20170228
+'Purpose: 		Check the stereotypes of sub packages.  Only the root shall have stereotype "ApplicationSchema" 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+' 
+sub CheckSubPackageStereotype(rootPackage)
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set subPackageList = rootPackage.Packages
+	
+	for each subPackage in subPackageList
+		if UCase(subPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Error: Package [«" &subPackage.Element.Stereotype& "» " &subPackage.Name& "]. Package with stereotype ApplicationSchema cannot contain subpackages with stereotype ApplicationSchema. [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if	
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2483,6 +2503,8 @@ sub FindInvalidElementsInPackage(package)
 
 	call checkEndingOfPackageName(package)
 	call checkUtkast(package)
+	
+	call checkSubPackageStereotype(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
