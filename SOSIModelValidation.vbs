@@ -90,8 +90,8 @@
 '			featureType classes shall have unique names within the applicationSchema		
 '	/krav/taggedValueSpråk 	
 '			Check that ApplicationSchema packages shall have a language tag. Also check that ApplicationSchema have designation and definition tags in English (i.e. tag value ending with @en)
-'
-' 
+'	/req/general/feature
+' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. Check that FeatureTypes within a ApplicationSchema have unique names.
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Project Browser Script main function 
  
@@ -2386,7 +2386,7 @@ sub checkUniqueFeatureTypeNames()
 		'generate error messages according to content of the temporary array
 		dim tempStoredFeatureType AS EA.Element
 		if temporaryFeatureTypeArray.count > 1 then
-			Session.Output("Error: Found nonunique names for the following classes. [req/uml/feature]")
+			Session.Output("Error: Found nonunique names for the following classes. [req/uml/feature] [req/general/feature]")
 			'counting one error per name conflict (not one error per class with nonunique name)
 			globalErrorCounter = globalErrorCounter + 1
 			for each tempStoredFeatureType in temporaryFeatureTypeArray
