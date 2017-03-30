@@ -2530,6 +2530,8 @@ sub checkPackageDependency(thePackage)
 	dim packageDependenciesShown
 	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
 	
+	Session.Output("!DEBUG! Entered CHeckPackageDependency")
+	
 	'get external elements (function or sub by Magnus)
 	'externalElementList=getElementIDsOfExternalElements(thePackage)
 	
@@ -2544,22 +2546,29 @@ sub checkPackageDependency(thePackage)
 	'compare "real" dependencies made by referencing out-of-package elements with
 	'package dependencies declared in model and dependencies shown in diagrams
 	
-	dim packageID
+	dim packageElementID
 	dim investigatedPackage
 	dim investigatedElement
+	dim elementID
+	dim package as EA.Package
+	dim packageID
+	dim i
 	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
-	' for i 0 to referencedExternalPackages.Count-1
-	'  packageID=referencedExternalPackages[i]
-	'  if not packageDependenciesShown.Contains(packageID) then
-	'     elementID = referencedExternalElements[i]
-	'	  set investigatedPackage=Repository.GetElementByID(packageID)
-	'	  set investigatedElement=Repository.GetElementByID(elementID)
-	'     if not packageDependenceis.Contains(package) then
-	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
-	'     else
-	'       Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
-	'     end if
-	'  end if
+	for i = 0 to globalListPackageIDsOfPackagesToBeReferenced.Count-1
+		packageID = globalListPackageIDsOfPackagesToBeReferenced(i)
+		set package = Repository.GetPackageByID(packageID)
+		packageElementID=package.Element.ElementID
+		if not packageDependenciesShown.Contains(packageElementID) then
+			elementID = globalListClassifierIDsOfExternalReferencedElements(i)
+			set investigatedPackage=Repository.GetElementByID(packageElementID)
+			set investigatedElement=Repository.GetElementByID(elementID)
+			if not packageDependencies.Contains(packageElementID) then
+				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+			else
+				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
+			end if
+		end if
+	next
 	
 	'check that dependencies are between ApplicationSchema packages.
 	for each packageID in packageDependencies
@@ -2578,11 +2587,15 @@ sub findPackageDependencies(thePackageElement, dependencyList)
 	
 	set connectorList=thePackageElement.Connectors
 	
+	
+	
 	for each packageConnector in connectorList
-		if packageConnector.Type="Usage" or packageConnector.Type="Package" then
+		Session.Output("!DEBUG! packageConnector.Type: "&packageConnector.Type)
+		if packageConnector.Type="Usage" or packageConnector.Type="Package" or packageConnector.Type="Dependency" then
 			if thePackageElement.ElementID = packageConnector.ClientID then
 				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
 				dependencyList.Add(dependee.ElementID)
+				Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
 				call findPackageDependencies(dependee, dependencyList)
 			end if
 		end if
