@@ -446,7 +446,7 @@ end function
  
  			dim sourceEndElement as EA.Element 
  			 
- 			if sourceEndNavigable = "Navigable" and sourceEndDefinition = "" then 
+ 			if sourceEndNavigable = "Navigable" and sourceEndDefinition = "" and currentConnector.Type <> "Dependency" then
  				'get the element on the source end of the connector 
  				set sourceEndElement = Repository.GetElementByID(sourceEndElementID) 
  				 
@@ -454,7 +454,7 @@ end function
  				globalErrorCounter = globalErrorCounter + 1 
  			end if 
  			 
- 			if targetEndNavigable = "Navigable" and targetEndDefinition = "" then 
+ 			if targetEndNavigable = "Navigable" and targetEndDefinition = "" and currentConnector.Type <> "Dependency" then
  				'get the element on the source end of the connector (also source end element here because error message is related to the element on the source end of the connector) 
  				set sourceEndElement = Repository.GetElementByID(sourceEndElementID) 
  				 
@@ -2207,13 +2207,13 @@ end sub
 '				targetEndName (CharacterString). role name on association's target end
 '				sourceEndCardinality (CharacterString). multiplicity on association's source end
 '				targetEndCardinality (CharacterString). multiplicity on association's target end
-sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality)
-	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" then 
+sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & sourceEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
  								 
-	if targetEndNavigable = "Navigable" and targetEndCardinality = "" then 
+	if targetEndNavigable = "Navigable" and targetEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & targetEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
@@ -2234,13 +2234,13 @@ end sub
 '				sourceEndName (CharacterString). role name on association's source end
 '				targetEndName (CharacterString). role name on association's target end
 '				elementOnOppositeSide (EA.Element). The element on the opposite side of the association to check
-sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide)
-	if sourceEndNavigable = "Navigable" and sourceEndName = "" then 
+sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+	if sourceEndNavigable = "Navigable" and sourceEndName = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
  								 
-	if targetEndNavigable = "Navigable" and targetEndName = "" then 
+	if targetEndNavigable = "Navigable" and targetEndName = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& elementOnOppositeSide.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
@@ -2887,10 +2887,10 @@ sub FindInvalidElementsInPackage(package)
 					CheckDefinition(currentConnector) 
  																								 
 					'check if there is multiplicity on navigable ends (krav/10)
-					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality)
+					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 					 
 					'check if there are role names on navigable ends  (krav/11)
-					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide)
+					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 																		 
 					'check if role names on connector ends start with lower case (regardless of navigability) (krav/navning)
 					call checkRoleNames(currentElement, sourceEndName, targetEndName, elementOnOppositeSide)
