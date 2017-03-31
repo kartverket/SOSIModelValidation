@@ -2607,13 +2607,15 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
 		if modelLink.Type = "Package" or modelLink.Type = "Usage" or modelLink.Type="Dependency" then
 			if modelLink.ClientID = investigatedPackageElementID then
+				dim supplier
+				dim client
+				set supplier = Repository.GetElementByID(modelLink.SupplierID)
+				set client = Repository.GetElementByID(modelLink.ClientID)
 				dependencyList.Add(modelLink.SupplierID)
+				Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
 				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
 				if diagramLink.IsHidden and globalLogLevelIsWarning then
-					dim supplier
-					dim client
-					set supplier = Repository.GetElementByID(modelLink.SupplierID)
-					set client = Repository.GetElementByID(modelLink.ClientID)
+
 					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
 				end if
 			end if
@@ -2621,25 +2623,46 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 	next
 end sub
 
+sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+	
+	dim diagramList
+	set diagramList=thePackage.Diagrams
+	dim subPackageList
+	set subPackageList=thePackage.Packages
+	dim diagram
+	dim subPackage
+	
+	Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
+	for each diagram in diagramList
+		if diagram.Type="Package" then
+			packageDiagramIDList.Add(diagram.DiagramID)
+			Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
+		end if
+	next
+	for each subPackage in subPackageList
+		call getAllPackageDiagramIDs(subPackage, packageDiagramIDList)
+	next
+end sub
+	
+
 sub findPackageDependenciesShown(thePackage, dependencyList)
 	dim thePackageElementID
-	dim diagramList
-	dim subPackageList
+	thePackageElementID = thePackage.Element.ElementID
+	dim packageDiagramIDList
+	set packageDiagramIDList=CreateObject("System.Collections.ArrayList")
+	dim diagramID
 	dim diagram
 	dim subPackage
 
-	set diagramList=thePackage.Diagrams
-	set subPackageList=thePackage.Packages
-	thePackageElementID=thePackage.Element.ElementID
+'	set diagramList=thePackage.Diagrams
+'	set subPackageList=thePackage.Packages
 
-	for each diagram in diagramList
-		if diagram.Type="Package" then
-			call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
-		end if
+	call getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+
+	for each diagramID in packageDiagramIDList
+		set diagram=Repository.GetDiagramByID(diagramID)
+		call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
 	next	
-	for each subPackage in subPackageList
-		call findPackageDependenciesShown(subPackage, dependencyList)
-	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
