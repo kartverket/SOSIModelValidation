@@ -2638,6 +2638,7 @@ sub findPackageDependenciesShown(thePackage, dependencyList)
 		end if
 	next	
 	for each subPackage in subPackageList
+		call findPackageDependenciesShown(subPackage, dependencyList)
 	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
