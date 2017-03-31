@@ -2556,9 +2556,9 @@ sub checkPackageDependency(thePackage)
 			set investigatedPackage=Repository.GetElementByID(packageElementID)
 			set investigatedElement=Repository.GetElementByID(elementID)
 			if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
-				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+				Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
 			else
-				Session.Output("Error, use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
+				Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
 			end if
 		end if
 	next
@@ -2624,15 +2624,12 @@ end sub
 sub findPackageDependenciesShown(thePackage, dependencyList)
 	dim thePackageElementID
 	dim diagramList
-	dim elementList
-	dim linkList
+	dim subPackageList
 	dim diagram
-	dim diagramElement
-	dim modelElement
-	dim diagramLink
-	dim modelLink
+	dim subPackage
 
 	set diagramList=thePackage.Diagrams
+	set subPackageList=thePackage.Packages
 	thePackageElementID=thePackage.Element.ElementID
 
 	for each diagram in diagramList
@@ -2640,6 +2637,8 @@ sub findPackageDependenciesShown(thePackage, dependencyList)
 			call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
 		end if
 	next	
+	for each subPackage in subPackageList
+	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
