@@ -190,9 +190,16 @@
 								Session.Output("Aborting Script.")
 								exit sub
 							end if
-              
-              call populatePackageIDList(thePackage)
+							
+							call populatePackageIDList(thePackage)
+							call populateClassifierIDList(thePackage)
+							call findPackageDependencies(thePackage.Element)
+							call getElementIDsOfExternalReferencedElements(thePackage)
+							call findPackagesToBeReferenced()
+							
+							call checkPackageDependency(thePackage)
 
+							
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -207,7 +214,8 @@
 							'------------------------------------------------------------------ 
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
-	
+							
+														
 							'check uniqueness of featureType names
 							checkUniqueFeatureTypeNames()
 	
@@ -288,7 +296,30 @@ sub PopulatePackageIDList(rootPackage)
 	next
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
- 
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulateClassifierIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170228
+'Purpose: 		Populate the globalListAllClassifierIDsInApplicationSchema variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+
+sub PopulateClassifierIDList(rootPackage)
+	dim containedElementList as EA.Collection
+	dim containedElement as EA.Element
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set containedElementList = rootPackage.Elements
+	set subPackageList = rootPackage.Packages
+	
+	for each containedElement in containedElementList
+		globalListAllClassifierIDsInApplicationSchema.Add(containedElement.ElementID)
+	next
+	for each subPackage in subPackageList
+		PopulateClassifierIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Function name: scriptBreakingStructuresInModel
@@ -2495,6 +2526,373 @@ end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
+
+' Script Name: checkPackageDependency
+' Author: Åsmund Tjora, Magnus Karge
+' Date: 170329
+' Purpose: Check that elements in external packages are accessible through package dependencies.  Check that dependency diagrams show these dependencies. 
+' Input parameter:  thePackage:  Package to be checked
+
+sub checkPackageDependency(thePackage)
+
+	'dim packageDependencies - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
+	'set packageDependencies=CreateObject("System.Collections.ArrayList")
+	'packageDependenciesShown - List of package dependencies shown in package diagrams
+	dim packageDependenciesShown
+	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
+
+	'get package dependencies declared in ApplicationSchema model
+	'call findPackageDependencies(thePackage.Element, packageDependencies) - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
+	'get package dependencies actually shown in package diagrams in model
+	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
+	
+	'---
+	'compare "real" dependencies made by referencing out-of-package elements with
+	'package dependencies declared in model and dependencies shown in diagrams
+	dim packageElementID
+	dim investigatedPackage
+	dim investigatedElement
+	dim elementID
+	dim package as EA.Package
+	dim packageID
+	dim i
+	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
+	for i = 0 to globalListPackageIDsOfPackagesToBeReferenced.Count-1
+		packageID = globalListPackageIDsOfPackagesToBeReferenced(i)
+		set package = Repository.GetPackageByID(packageID)
+		packageElementID=package.Element.ElementID
+		if not packageDependenciesShown.Contains(packageElementID) then
+			elementID = globalListClassifierIDsOfExternalReferencedElements(i)
+			set investigatedPackage=Repository.GetElementByID(packageElementID)
+			set investigatedElement=Repository.GetElementByID(elementID)
+	'		if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
+	'			Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+	'		else
+			Session.Output("Error: Dependency on package [" & investigatedPackage.Name & "] needed for the use of element [" & investigatedElement.Name & "] is not shown in any package diagram [/krav/17][/krav/21]")
+			globalErrorCounter=globalErrorCounter+1 
+	'		end if
+		end if
+	next
+	
+	'check that dependencies are between ApplicationSchema packages.
+	for each packageElementID in globalListPackageElementIDsOfPackageDependencies
+		set investigatedPackage=Repository.GetElementByID(packageElementID)
+		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Warning: Dependency to package [«" & investigatedPackage.Stereotype & "» " & investigatedPackage.Name & "] found.  Dependencies shall only be to ApplicationSchema packages or Standard schemas. [req/uml/integration]")
+			globalWarningCounter = globalWarningCounter + 1
+		end if
+	next
+end sub
+
+sub findPackageDependencies(thePackageElement)
+	dim connectorList as EA.Collection
+	dim packageConnector as EA.Connector
+	dim dependee as EA.Element
+	
+	set connectorList=thePackageElement.Connectors
+	
+	for each packageConnector in connectorList
+		if packageConnector.Type="Usage" or packageConnector.Type="Package" or packageConnector.Type="Dependency" then
+			if thePackageElement.ElementID = packageConnector.ClientID then
+				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
+				globalListPackageElementIDsOfPackageDependencies.Add(dependee.ElementID)
+				'Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
+				'call findPackageDependencies(dependee)
+			end if
+		end if
+	next
+end sub
+
+sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID, dependencyList)
+	'recursively traverse the packages in a diagram in order to get the full dependencyList.
+	dim elementList
+	set elementList=diagram.DiagramObjects
+	dim diagramElement
+	dim modelElement
+	dim linkList
+	set linkList=diagram.diagramLinks
+	dim diagramLink
+	dim modelLink
+	
+	for each diagramLink in linkList
+		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
+		if modelLink.Type = "Package" or modelLink.Type = "Usage" or modelLink.Type="Dependency" then
+			if modelLink.ClientID = investigatedPackageElementID then
+				dim supplier
+				dim client
+				set supplier = Repository.GetElementByID(modelLink.SupplierID)
+				set client = Repository.GetElementByID(modelLink.ClientID)
+				dependencyList.Add(modelLink.SupplierID)
+				'Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
+				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
+				if diagramLink.IsHidden and globalLogLevelIsWarning then
+
+					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
+				end if
+			end if
+		end if
+	next
+end sub
+
+sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+	
+	dim diagramList
+	set diagramList=thePackage.Diagrams
+	dim subPackageList
+	set subPackageList=thePackage.Packages
+	dim diagram
+	dim subPackage
+	
+	'Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
+	for each diagram in diagramList
+		if diagram.Type="Package" then
+			packageDiagramIDList.Add(diagram.DiagramID)
+			'Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
+		end if
+	next
+	for each subPackage in subPackageList
+		call getAllPackageDiagramIDs(subPackage, packageDiagramIDList)
+	next
+end sub
+	
+
+sub findPackageDependenciesShown(thePackage, dependencyList)
+	dim thePackageElementID
+	thePackageElementID = thePackage.Element.ElementID
+	dim packageDiagramIDList
+	set packageDiagramIDList=CreateObject("System.Collections.ArrayList")
+	dim diagramID
+	dim diagram
+	dim subPackage
+
+'	set diagramList=thePackage.Diagrams
+'	set subPackageList=thePackage.Packages
+
+	call getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+
+	for each diagramID in packageDiagramIDList
+		set diagram=Repository.GetDiagramByID(diagramID)
+		call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
+	next	
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: findPackagesToBeReferenced
+' Author: Magnus Karge
+' Date: 20170303
+' Purpose: 	to collect the IDs of all packages the applicationSchema package is dependent on
+'			populates globalListPackageIDsOfPackagesToBeReferenced
+' Input parameter:  none, uses global variable globalListClassifierIDsOfExternalReferencedElements
+
+sub findPackagesToBeReferenced()
+	dim externalReferencedElementID
+	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.size)
+	dim debugcount
+	debugcount=0
+	dim currentExternalElement as EA.Element
+	dim arrayCounter
+	'Session.Output("!DEBUG! Elements in list: "& globalListClassifierIDsOfExternalReferencedElements.count)
+	for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
+		debugcount = debugcount + 1
+		'Session.Output("!DEBUG! Iteration of for: "& debugcount)
+		'Session.Output("!DEBUG! externalReferencedElementID: "& externalReferencedElementID)
+		set currentExternalElement = Repository.GetElementByID(externalReferencedElementID)
+		dim parentPackageID
+		parentPackageID = currentExternalElement.PackageID 'here the parentPackageID is the ID of the package containing the external element
+		
+		'temporal variable containing list of packageIDs of AppSchemaPackages in package hierarchy upwards from the external referenced element
+		dim tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy
+		set tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy=CreateObject("System.Collections.ArrayList")
+		
+		'temporal variable containing list of packageIDs of referenced packages in package hierarchy upwards from the external referenced element
+		dim tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+		set tmpListPackageIDsOfReferencedPackagesFoundInHierarchy=CreateObject("System.Collections.ArrayList")
+		
+		dim parentPackageIsApplicationSchema
+		parentPackageIsApplicationSchema = false
+		dim parentPackage as EA.Package
+		if (not parentPackageID = 0) then 'meaning that there is a package
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			
+			'check if parentPackage is package and not model
+			if (not parentPackage.IsModel) then
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
+				end if
+			end if	
+			
+			'check if parentPackage has dependency from the startpackage
+			if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
+				tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+			end if
+			
+		end if
+		
+		dim tempPackageIDOfPotentialPackageToBeReferenced
+		tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+		
+		
+		
+		'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0) or finding a package with stereotype applicationSchema
+		do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
+			parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
+			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID)
+			'Session.Output("!DEBUG! parentPackageName = "& parentPackageID)
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			'Session.Output("!DEBUG! parentPackageName = "& parentPackage.Name)
+			
+			if (not parentPackage.IsModel) then 
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
+					tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+					
+				end if
+				'check if parentPackage has dependency from the startpackage
+				if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
+					tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+				end if
+
+			end if
+			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID & "   parentPackageIsApplicationSchema = "&parentPackageIsApplicationSchema &" parentPackageName: "&parentPackage.Name)
+		loop
+		'Session.Output("!DEBUG! out of loop")
+		'add the temporal package ID to the global list
+		'the temporal package ID is either the package containing the external element
+		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
+		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
+		
+		'Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
+		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "&externalReferencedElementID)
+		
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
+		
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
+			Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
+			Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 0 then
+			'TODO does only check the first applicationSchema package found --> to be improved
+			dim packageIDOfFirstAppSchemaPackageFoundInHierarchy
+			packageIDOfFirstAppSchemaPackageFoundInHierarchy = tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)
+			dim packageIDOfReferencedPackage
+			if not tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+				Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please exchange the modelled dependency to the following package(s) because of an existing applicationSchema package in the package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
+				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+					Session.Output("       Exchange dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"] with dependency to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"]")
+					
+				next
+			elseif tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+				Session.Output("ERROR: Found redundant dependency related to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please remove additional modelled dependency to the following package(s) in the same package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
+				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+					if not packageIDOfFirstAppSchemaPackageFoundInHierarchy = packageIDOfReferencedPackage then
+						Session.Output("       Remove dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"]")
+					end if
+				next
+			
+			end if
+		end if
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: getElementIDsOfExternalReferencedElements
+' Author: Magnus Karge
+' Date: 20170228
+' Purpose: 	to collect the IDs of all elements not part of the applicationSchema package but referenced from elements in
+'			thePackage or subpackages (e.g. via associations or types of attributes) 
+'			populates globalListClassifierIDsOfExternalReferencedElements
+' Input parameter:  thePackage:EA.Package, uses global variable globalListAllClassifierIDsInApplicationSchema
+
+sub getElementIDsOfExternalReferencedElements(thePackage)
+			
+	dim elementsInPackage as EA.Collection
+	set elementsInPackage = thePackage.Elements
+	
+	dim subpackages as EA.Collection 
+	set subpackages = thePackage.Packages 'collection of packages that belong to thePackage	
+			
+	'Navigate the package collection and call the getElementIDsOfExternalElements sub for each of the packages 
+	dim p 
+	for p = 0 to subpackages.Count - 1 
+		dim currentPackage as EA.Package 
+		set currentPackage = subpackages.GetAt( p ) 
+		getElementIDsOfExternalReferencedElements(currentPackage) 
+	next 
+ 			 
+ 	'------------------------------------------------------------------ 
+	'---ELEMENTS--- 
+	'------------------------------------------------------------------		 
+ 			 
+	' Navigate the elements collection, pick the classes, find the definitions/notes and do sth. with it 
+	'Session.Output( " number of elements in package: " & elements.Count) 
+	dim e 
+	for e = 0 to elementsInPackage.Count - 1 
+		dim currentElement as EA.Element 
+		set currentElement = elementsInPackage.GetAt( e ) 
+		
+		'check all attributes
+		dim listOfAttributes as EA.Collection
+		set listOfAttributes = currentElement.Attributes
+		dim a
+		for a = 0 to listOfAttributes.Count - 1 
+			dim currentAttribute as EA.Attribute
+			set currentAttribute = listOfAttributes.GetAt(a)
+			'check if classifier id is connected to a base type - not a primitive type (not 0) and if it 
+			'is part of globalListAllClassifierIDsInApplicationSchema
+			if not currentAttribute.ClassifierID = 0 AND not globalListAllClassifierIDsInApplicationSchema.contains(currentAttribute.ClassifierID) then
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] not in list globalListAllClassifierIDsInApplicationSchema and not 0") 
+				if not globalListClassifierIDsOfExternalReferencedElements.Contains(currentAttribute.ClassifierID) then
+					'add to list if not contained already
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentAttribute.ClassifierID)
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				else
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			else 
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListAllClassifierIDsInApplicationSchema or 0") 
+			end if
+		next	
+		
+		'check all connectors
+		dim listOfConnectors as EA.Collection
+		set listOfConnectors = currentElement.Connectors
+		dim c
+		for c = 0 to listOfConnectors.Count - 1 
+			dim currentConnector as EA.Connector
+			set currentConnector = listOfConnectors.GetAt(c)
+			'check if this element is on source side of connector - if not ignore (could be external connectors pointing to the element)
+			' and if id is in globalListAllClassifierIDsInApplicationSchema
+			if currentElement.ElementID = currentConnector.ClientID AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
+				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				'else
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			'else
+				'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
+			end if
+		next	
+		
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
 'Sub name: 		CheckSubPackageStereotype
 'Author: 		Åsmund Tjora
 'Date: 			20170228
@@ -2971,5 +3369,22 @@ Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
 'global variable containing list of the starting package and all subpackages
 dim globalPackageIDList
 set globalPackageIDList=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of all classifier ids within the application schema
+dim globalListAllClassifierIDsInApplicationSchema
+set globalListAllClassifierIDsInApplicationSchema=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of all classifier ids of elements not part of the application schema but
+'referenced from elements within the application schema 
+dim globalListClassifierIDsOfExternalReferencedElements
+set globalListClassifierIDsOfExternalReferencedElements=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of pckage IDs to be referenced
+dim globalListPackageIDsOfPackagesToBeReferenced
+set globalListPackageIDsOfPackagesToBeReferenced=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of package element IDs of modelled dependencies
+dim globalListPackageElementIDsOfPackageDependencies
+set globalListPackageElementIDsOfPackageDependencies=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
