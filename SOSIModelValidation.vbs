@@ -2764,23 +2764,36 @@ sub findPackagesToBeReferenced()
 		Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
 		
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
-			Session.Output("------>>>>ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
 		end if
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
-			Session.Output("------>>>>ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
 		end if
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 0 then
 			'TODO does only check the first applicationSchema package found --> to be improved
 			dim packageIDOfFirstAppSchemaPackageFoundInHierarchy
 			packageIDOfFirstAppSchemaPackageFoundInHierarchy = tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)
+			dim packageIDOfReferencedPackage
 			if not tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
-				Session.Output("------>>>>ERROR 1/2: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
-				Session.Output("------>>>>ERROR 2/2: Please remove the modelled dependency to the following package(s) because of an existing applicationSchema package in the package hierarchy:")
-				dim packageIDOfReferencedPackage
+				Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please exchange the modelled dependency to the following package(s) because of an existing applicationSchema package in the package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
 				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
-					Session.Output("------>>>>Remove dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"]")
+					Session.Output("       Exchange dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"] with dependency to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"]")
 					
 				next
+			elseif tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+				Session.Output("ERROR: Found redundant dependency related to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please remove additional modelled dependency to the following package(s) in the same package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
+				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+					if not packageIDOfFirstAppSchemaPackageFoundInHierarchy = packageIDOfReferencedPackage then
+						Session.Output("       Remove dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"]")
+					end if
+				next
+			
 			end if
 		end if
 	next
