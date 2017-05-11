@@ -211,38 +211,7 @@
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
 							
-							'---->only for debugging - start:<----
-							Session.Output("-----DEBUG-----")
-							Session.Output("External referenced elements in list: " & globalListClassifierIDsOfExternalReferencedElements.count)
-							dim externalReferencedElementID
-							dim counter
-							counter = 1
-							for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
-								Session.Output("Element nr. " & counter)
-								dim element as EA.Element
-								set element = Repository.GetElementByID(externalReferencedElementID)
-								Session.Output("Class: "& element.Name)
-								counter = counter + 1
-							next
-							Session.Output("----End of list----")
-							
-							
-							Session.Output("-----DEBUG-----")
-							Session.Output("External referenced packages in list: " & globalListPackageIDsOfPackagesToBeReferenced.count)
-							dim externalReferencedPackageID
-							dim packageCounter
-							packageCounter = 1
-							for each externalReferencedPackageID in globalListPackageIDsOfPackagesToBeReferenced
-								Session.Output("Element nr. " & packageCounter)
-								dim package as EA.Package
-								set package = Repository.GetPackageByID(externalReferencedPackageID)
-								Session.Output("Package: "& package.Name)
-								packageCounter = packageCounter + 1
-							next
-							Session.Output("----End of list----")
-							
-							'---->only for debugging - end<----
-							
+														
 							'check uniqueness of featureType names
 							checkUniqueFeatureTypeNames()
 	
@@ -2589,8 +2558,8 @@ sub findPackageDependencies(thePackageElement)
 			if thePackageElement.ElementID = packageConnector.ClientID then
 				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
 				globalListPackageElementIDsOfPackageDependencies.Add(dependee.ElementID)
-				Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
-				call findPackageDependencies(dependee)
+				'Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
+				'call findPackageDependencies(dependee)
 			end if
 		end if
 	next
@@ -2616,7 +2585,7 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 				set supplier = Repository.GetElementByID(modelLink.SupplierID)
 				set client = Repository.GetElementByID(modelLink.ClientID)
 				dependencyList.Add(modelLink.SupplierID)
-				Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
+				'Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
 				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
 				if diagramLink.IsHidden and globalLogLevelIsWarning then
 
@@ -2636,11 +2605,11 @@ sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
 	dim diagram
 	dim subPackage
 	
-	Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
+	'Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
 	for each diagram in diagramList
 		if diagram.Type="Package" then
 			packageDiagramIDList.Add(diagram.DiagramID)
-			Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
+			'Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
 		end if
 	next
 	for each subPackage in subPackageList
@@ -2757,11 +2726,11 @@ sub findPackagesToBeReferenced()
 		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
 		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
 		
-		Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
+		'Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
 		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "&externalReferencedElementID)
 		
-		Session.Output("!DEBUG! #tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
-		Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
 		
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
 			Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
@@ -2847,16 +2816,16 @@ sub getElementIDsOfExternalReferencedElements(thePackage)
 			'check if classifier id is connected to a base type - not a primitive type (not 0) and if it 
 			'is part of globalListAllClassifierIDsInApplicationSchema
 			if not currentAttribute.ClassifierID = 0 AND not globalListAllClassifierIDsInApplicationSchema.contains(currentAttribute.ClassifierID) then
-				Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] not in list globalListAllClassifierIDsInApplicationSchema and not 0") 
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] not in list globalListAllClassifierIDsInApplicationSchema and not 0") 
 				if not globalListClassifierIDsOfExternalReferencedElements.Contains(currentAttribute.ClassifierID) then
 					'add to list if not contained already
 					globalListClassifierIDsOfExternalReferencedElements.Add(currentAttribute.ClassifierID)
-					Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
 				else
-					Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
 				end if
 			else 
-				Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListAllClassifierIDsInApplicationSchema or 0") 
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListAllClassifierIDsInApplicationSchema or 0") 
 			end if
 		next	
 		
@@ -2872,12 +2841,12 @@ sub getElementIDsOfExternalReferencedElements(thePackage)
 			if currentElement.ElementID = currentConnector.ClientID AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
 				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
 					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
-					Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
-				else
-					Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				'else
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
 				end if
-			else
-				Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
+			'else
+				'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
 			end if
 		next	
 		
