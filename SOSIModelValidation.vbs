@@ -193,6 +193,9 @@
 							call getElementIDsOfExternalReferencedElements(thePackage)
 							call findPackagesToBeReferenced()
 							
+							call checkPackageDependency(thePackage)
+
+							
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -2555,11 +2558,12 @@ sub checkPackageDependency(thePackage)
 			elementID = globalListClassifierIDsOfExternalReferencedElements(i)
 			set investigatedPackage=Repository.GetElementByID(packageElementID)
 			set investigatedElement=Repository.GetElementByID(elementID)
-			if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
-				Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
-			else
-				Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not shown in any package diagram [/krav/17][/krav/21]")
-			end if
+	'		if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
+	'			Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+	'		else
+			Session.Output("Error: Dependency on package [" & investigatedPackage.Name & "] needed for the use of element [" & investigatedElement.Name & "] is not shown in any package diagram [/krav/17][/krav/21]")
+			globalErrorCounter=globalErrorCounter+1 
+	'		end if
 		end if
 	next
 	
@@ -2895,7 +2899,6 @@ sub FindInvalidElementsInPackage(package)
 
 	call checkEndingOfPackageName(package)
 	call checkUtkast(package)
-	call checkPackageDependency(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
