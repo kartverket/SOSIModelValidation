@@ -508,9 +508,13 @@ end function
  			set attributeParentElement = Repository.GetElementByID(currentAttribute.ParentID) 
  			
 			if Ucase(attributeParentElement.Stereotype) <> "CODELIST" then
-				if currentAttribute.Notes = "" then 
-					Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
-					globalErrorCounter = globalErrorCounter + 1 
+				if Ucase(attributeParentElement.Stereotype) <> "ENUMERATION" then		
+					if attributeParentElement.Type <> "Enumeration" then	
+						if currentAttribute.Notes = "" then 
+							Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
+							globalErrorCounter = globalErrorCounter + 1 
+						end if
+					end if
 				end if
 			end if
  			 
