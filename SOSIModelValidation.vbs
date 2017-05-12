@@ -469,7 +469,7 @@ end function
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Sub name: 		CheckDefinition
-'Author: 		Magnus Karge
+'Author: 		Magnus Karge (minor contribution by Tore Johnsen)
 'Date: 			20160925 
 'Purpose: 		Check if the provided argument for input parameter theObject fulfills the requirements in [krav/3]: 
 '				Find elements (classes, attributes, navigable association roles, operations, datatypes)  
@@ -506,11 +506,13 @@ end function
  			'get the attribute's parent element 
  			dim attributeParentElement as EA.Element 
  			set attributeParentElement = Repository.GetElementByID(currentAttribute.ParentID) 
- 			 
- 			if currentAttribute.Notes = "" then 
-				Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
- 				globalErrorCounter = globalErrorCounter + 1 
- 			end if 
+ 			
+			if Ucase(attributeParentElement.Stereotype) <> "CODELIST" then
+				if currentAttribute.Notes = "" then 
+					Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
+					globalErrorCounter = globalErrorCounter + 1 
+				end if
+			end if
  			 
  		Case otMethod 
  			' Code for when the function's parameter is a method 
