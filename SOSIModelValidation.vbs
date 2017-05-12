@@ -396,7 +396,7 @@ end function
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Sub name: 		CheckDefinition
-'Author: 		Magnus Karge
+'Author: 		Magnus Karge (minor contribution by Tore Johnsen)
 'Date: 			20160925 
 'Purpose: 		Check if the provided argument for input parameter theObject fulfills the requirements in [krav/3]: 
 '				Find elements (classes, attributes, navigable association roles, operations, datatypes)  
