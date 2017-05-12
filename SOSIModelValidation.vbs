@@ -2697,10 +2697,10 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 				set client = Repository.GetElementByID(modelLink.ClientID)
 				dependencyList.Add(modelLink.SupplierID)
 				'Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
-				call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
+				'call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
 				if diagramLink.IsHidden and globalLogLevelIsWarning then
-
 					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
+					globalWarningCounter=globalWarningCounter+1
 				end if
 			end if
 		end if
