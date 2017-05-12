@@ -9,8 +9,10 @@
 ' 
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
-' Version: 1.0.8
-' Date: 2017-01-19 
+
+' Version: 1.1.2
+
+' Date: 2017-02-02 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -28,14 +30,16 @@
 '	/krav/12: 
 '			If datatypes have associations then the datatype shall only be target in a composition 
 '  	/krav/14:
-'			Iso 19103 Requirement 14 -inherit from same stereotypes
+'			Iso 19103 Requirement 14 - inherit from same stereotypes
 '  	/krav/15:
-'			Iso 19103 Requirement 15 -known stereotypes
-'  	/krav/16
-'			Iso 19103 Requirement 16 -legal NCNames case-insesnitively unique within their namespace
-'  	/krav/18
-'			Iso 19103 Requirement 18 -all elements shall show all structures in at least one diagram
+'			Iso 19103 Requirement 15 - known stereotypes
+'  	/krav/16:
+'			Iso 19103 Requirement 16 - legal NCNames case-insesnitively unique within their namespace
+'  	/krav/18:
+'			Iso 19103 Requirement 18 - all elements shall show all structures in at least one diagram
 '			Current version test all classes and their attributes in diagrams, not yet roles and inheritance.
+'	/krav/19:
+'			Iso 19103 Requirement 19 - all classes shall have a definition describing its intended meaning or semantics.
 '	/krav/definisjoner: 
 '			Same as krav/3 but checks also for definitions of packages and constraints
 '			The part that checks definitions of constraints is implemented in sub checkConstraint	
@@ -72,6 +76,8 @@
 '			To check if a constraint lacks name or definition. 
 '  	/req/uml/packaging:
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
+'	/req/uml/structure
+'			Check that all abstract classes in application schema has at least one subclass within the same schema.  Check that no classes in application schema has stereotype interface
 '   /anbefaling/1:
 '			Checks every initial values in codeLists and enumerations for a package. If one or more initial values are numeric in one list, 
 ' 			it return a warning message. 
@@ -82,10 +88,13 @@
 '			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25
 '	/req/uml/feature
 '			featureType classes shall have unique names within the applicationSchema		
-'
-' 
+'	/krav/taggedValueSpråk 	
+'			Check that ApplicationSchema packages shall have a language tag. Also check that ApplicationSchema have designation and definition tags in English (i.e. tag value ending with @en)
+'	/req/general/feature
+' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. Check that FeatureTypes within a ApplicationSchema have unique names.
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Project Browser Script main function 
-' 
+ 
  sub OnProjectBrowserScript() 
  	 
 	Repository.EnsureOutputVisible("Script")
@@ -135,7 +144,7 @@
 				mess = mess + ""&Chr(13)&Chr(10)
 				mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.0.8")
+				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
 				select case box
 					case vbOK
 						'inputBoxGUI to receive user input regarding the log level
@@ -174,6 +183,23 @@
 						loop
 						
 						if not abort then
+              
+							'Check model for script breaking structures
+							if scriptBreakingStructuresInModel(thePackage) then
+								Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
+								Session.Output("Aborting Script.")
+								exit sub
+							end if
+							
+							call populatePackageIDList(thePackage)
+							call populateClassifierIDList(thePackage)
+							call findPackageDependencies(thePackage.Element)
+							call getElementIDsOfExternalReferencedElements(thePackage)
+							call findPackagesToBeReferenced()
+							
+							call checkPackageDependency(thePackage)
+
+							
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -188,7 +214,8 @@
 							'------------------------------------------------------------------ 
 							'---Check global variables--- 
 							'------------------------------------------------------------------ 
-	
+							
+														
 							'check uniqueness of featureType names
 							checkUniqueFeatureTypeNames()
 	
@@ -248,18 +275,209 @@
  	end select 
  	 
 end sub 
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
  
- 
- 
- 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulatePackageIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170223
+'Purpose: 		Populate the globalPackageIDList variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+' 
+sub PopulatePackageIDList(rootPackage)
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set subPackageList = rootPackage.Packages
+	
+	globalPackageIDList.Add(rootPackage.PackageID)
+	for each subPackage in subPackageList
+		PopulatePackageIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Sub name: 		PopulateClassifierIDList
+'Author: 		Åsmund Tjora
+'Date: 			20170228
+'Purpose: 		Populate the globalListAllClassifierIDsInApplicationSchema variable. 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+
+sub PopulateClassifierIDList(rootPackage)
+	dim containedElementList as EA.Collection
+	dim containedElement as EA.Element
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set containedElementList = rootPackage.Elements
+	set subPackageList = rootPackage.Packages
+	
+	for each containedElement in containedElementList
+		globalListAllClassifierIDsInApplicationSchema.Add(containedElement.ElementID)
+	next
+	for each subPackage in subPackageList
+		PopulateClassifierIDList(subPackage)
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+'Function name: scriptBreakingStructuresInModel
+'Author: 		Åsmund Tjora
+'Date: 			20170511 
+'Purpose: 		Check that the model does not contain structures that will break script operations (e.g. cause infinite loops)
+'Parameter: 	the package where the script runs
+'Return value:	false if no script-breaking structures in model are found, true if parts of the model may break the script.
+'Sub functions and subs:	inHeritanceLoop, inheritanceLoopCheck
+function scriptBreakingStructuresInModel(thePackage)
+	dim retVal
+	retVal=false
+	dim currentElement as EA.Element
+	dim elements as EA.Collection
+	
+	'Package Dependency Loop Check
+	set currentElement = thePackage.Element
+	retVal=retVal or dependencyLoop(currentElement)
+	
+	'Inheritance Loop Check
+	set elements = thePackage.elements
+	dim i
+	for i=0 to elements.Count-1
+		set currentElement = elements.GetAt(i)
+		if(currentElement.Type="Class") then
+			retVal=retVal or inheritanceLoop(currentElement)
+		end if
+	next
+	scriptBreakingStructuresInModel = retVal
+end function
+
+'Function name: dependencyLoop
+'Author: 		Åsmund Tjora
+'Date: 			20170511 
+'Purpose: 		Check that dependency structure does not form loops.  Return true if no loops are found, return false if loops are found
+'Parameter: 	Package element where check originates
+'Return value:	false if no loops are found, true if loops are found.
+function dependencyLoop(thePackageElement)
+	dim retVal
+	dim checkedPackagesList
+	set checkedPackagesList = CreateObject("System.Collections.ArrayList")
+	retVal=dependencyLoopCheck(thePackageElement, checkedPackagesList)
+	if retVal then
+		Session.Output("Error:  The dependency structure originating in [«" & thePackageElement.StereoType & "» " & thePackageElement.name & "] contains dependecy loops")
+	end if
+	dependencyLoop = retVal
+end function
+
+function dependencyLoopCheck(thePackageElement, dependantCheckedPackagesList)
+	dim retVal
+	dim dependee as EA.Element
+	dim connector as EA.Connector
+	
+	' Generate a copy of the input list.  
+	' The operations done on the list should not be visible by the dependant in order to avoid false positive when there are common dependees.
+	dim checkedPackagesList
+	set checkedPackagesList = CreateObject("System.Collections.ArrayList")
+	dim ElementID
+	for each ElementID in dependantCheckedPackagesList
+		checkedPackagesList.Add(ElementID)
+	next
+	
+	retVal=false
+	checkedPackagesList.Add(thePackageElement.ElementID)
+	for each connector in thePackageElement.Connectors
+		if connector.Type="Usage" or connector.Type="Package" or connector.Type="Dependency" then
+			if thePackageElement.ElementID = connector.ClientID then
+				set dependee = Repository.GetElementByID(connector.SupplierID)
+				dim checkedPackageID
+				for each checkedPackageID in checkedPackagesList
+					if checkedPackageID = dependee.ElementID then retVal=true
+				next
+				if retVal then 
+					Session.Output("Error: Package [«" & dependee.Stereotype & "» " & dependee.Name & "] has a dependency to itself")
+				else
+					retVal=dependencyLoopCheck(dependee, checkedPackagesList)
+				end if
+			end if
+		end if
+	next
+	
+	dependencyLoopCheck=retVal
+end function
+
+
+'Function name: inheritanceLoop
+'Author: 		Åsmund Tjora
+'Date: 			20170221 
+'Purpose: 		Check that inheritance structure does not form loops.  Return true if no loops are found, return false if loops are found
+'Parameter: 	Class element where check originates
+'Return value:	false if no loops are found, true if loops are found.
+function inheritanceLoop(theClass)
+	dim retVal
+	dim checkedClassesList
+	set checkedClassesList = CreateObject("System.Collections.ArrayList")
+	retVal=inheritanceLoopCheck(theClass, checkedClassesList)	
+	if retVal then
+		Session.Output("Error: Class hierarchy originating in [«" & theClass.Stereotype & "» "& theClass.Name & "] contains inheritance loops.")
+	end if
+	inheritanceLoop = retVal
+end function
+
+'Function name:	inheritanceLoopCheck
+'Author:		Åsmund Tjora
+'Date:			20170221
+'Purpose		Internal workings of function inhertianceLoop.  Register the class ID, compare list of ID's with superclass ID, recursively call itself for superclass.  
+'				Return "true" if class already has been registered (i.e. is a superclass of itself) 
+
+function inheritanceLoopCheck(theClass, subCheckedClassesList)
+	dim retVal
+	dim superClass as EA.Element
+	dim connector as EA.Connector
+
+	' Generate a copy of the input list.  
+	'The operations done on the list should not be visible by the subclass in order to avoid false positive at multiple inheritance
+	dim checkedClassesList
+	set checkedClassesList = CreateObject("System.Collections.ArrayList")
+	dim ElementID
+	for each ElementID in subCheckedClassesList
+		checkedClassesList.Add(ElementID)
+	next
+
+	retVal=false
+	checkedClassesList.Add(theClass.ElementID)	
+	for each connector in theClass.Connectors
+		if connector.Type = "Generalization" then
+			if theClass.ElementID = connector.ClientID then
+				set superClass = Repository.GetElementByID(connector.SupplierID)
+				dim checkedClassID
+				for each checkedClassID in checkedClassesList
+					if checkedClassID = superClass.ElementID then retVal = true
+				next
+				if retVal then 
+					Session.Output("Error: Class [«" & superClass.Stereotype & "» " & superClass.Name & "] is a generalization of itself")
+				else
+					retVal=inheritanceLoopCheck(superClass, checkedClassesList)
+				end if
+			end if
+		end if
+	next
+	
+	inheritanceLoopCheck = retVal
+end function
+
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Sub name: 		CheckDefinition
-'Author: 		Magnus Karge
+'Author: 		Magnus Karge (minor contribution by Tore Johnsen)
 'Date: 			20160925 
 'Purpose: 		Check if the provided argument for input parameter theObject fulfills the requirements in [krav/3]: 
 '				Find elements (classes, attributes, navigable association roles, operations, datatypes)  
 '				without definition (notes/rolenotes) 
-'				and [krav/definisjoner]: 
+'				[krav/definisjoner]: 
 '				Find packages and constraints without definition
+'				[krav/19]:
+'				All classes shall have a definition
 '@param[in] 	theObject (EA.ObjectType) The object to check,  
 '				supposed to be one of the following types: EA.Attribute, EA.Method, EA.Connector, EA.Element 
  
@@ -277,7 +495,7 @@ end sub
  			set currentElement = theObject 
  			 
  			If currentElement.Notes = "" then 
- 				Session.Output("Error: Class [«" &getStereotypeOfClass(currentElement)& "» "& currentElement.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]")	 
+ 				Session.Output("Error: Class [«" &getStereotypeOfClass(currentElement)& "» "& currentElement.Name & "] has no definition. [/krav/3], [/krav/definisjoner] & [/krav/19]")	 
  				globalErrorCounter = globalErrorCounter + 1 
  			end if 
  		Case otAttribute 
@@ -288,11 +506,17 @@ end sub
  			'get the attribute's parent element 
  			dim attributeParentElement as EA.Element 
  			set attributeParentElement = Repository.GetElementByID(currentAttribute.ParentID) 
- 			 
- 			if currentAttribute.Notes = "" then 
-				Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
- 				globalErrorCounter = globalErrorCounter + 1 
- 			end if 
+ 			
+			if Ucase(attributeParentElement.Stereotype) <> "CODELIST" then
+				if Ucase(attributeParentElement.Stereotype) <> "ENUMERATION" then		
+					if attributeParentElement.Type <> "Enumeration" then	
+						if currentAttribute.Notes = "" then 
+							Session.Output( "Error: Class [«" &getStereotypeOfClass(attributeParentElement)& "» "& attributeParentElement.Name &"] \ attribute [" & currentAttribute.Name & "] has no definition. [/krav/3] & [/krav/definisjoner]") 
+							globalErrorCounter = globalErrorCounter + 1 
+						end if
+					end if
+				end if
+			end if
  			 
  		Case otMethod 
  			' Code for when the function's parameter is a method 
@@ -332,7 +556,7 @@ end sub
  
  			dim sourceEndElement as EA.Element 
  			 
- 			if sourceEndNavigable = "Navigable" and sourceEndDefinition = "" then 
+ 			if sourceEndNavigable = "Navigable" and sourceEndDefinition = "" and currentConnector.Type <> "Dependency" then
  				'get the element on the source end of the connector 
  				set sourceEndElement = Repository.GetElementByID(sourceEndElementID) 
  				 
@@ -340,7 +564,7 @@ end sub
  				globalErrorCounter = globalErrorCounter + 1 
  			end if 
  			 
- 			if targetEndNavigable = "Navigable" and targetEndDefinition = "" then 
+ 			if targetEndNavigable = "Navigable" and targetEndDefinition = "" and currentConnector.Type <> "Dependency" then
  				'get the element on the source end of the connector (also source end element here because error message is related to the element on the source end of the connector) 
  				set sourceEndElement = Repository.GetElementByID(sourceEndElementID) 
  				 
@@ -359,14 +583,14 @@ end sub
 			end if 	 
  		Case else		 
  			'TODO: need some type of exception handling here
-			Session.Output( "Error: Function [CheckDefinition] started with invalid parameter.  DEBUG ME!") 
-			globalErrorCounter = globalErrorCounter + 1 
+			Session.Output( "Debug: Function [CheckDefinition] started with invalid parameter.") 
  	End Select 
  	 
 end sub 
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
-
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 'Purpose: 		help function in order to set stereotype that is shown 
 '				in diagrams but not accessible as such via EAObjectAPI
 'Used in sub: 	checkElementName
@@ -384,8 +608,10 @@ end sub
 	end if
 	getStereotypeOfClass=visibleStereotype
  end function
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
  
- '-----------------------------------------------------------START---------------------------------------------------------------------------------------------
+ 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub name: checkElementName
 ' Author: Magnus Karge
 ' Date: 20160925 
@@ -496,7 +722,7 @@ sub findMultipleInheritance(currentElement)
 		'Check level of superClass 
 		call findMultipleInheritance (superClass) 
 		elseif loopCounterMultipleInheritance = 21 then 
-			Session.Output("Warning: Found more than 20 inheritance levels for class:  [" &startClass.Name& "] while testing [/krav/enkelarv]. Please check for possible circle inheritance ")
+			Session.Output("Warning: Found more than 20 inheritance levels for class: [" &startClass.Name& "] while testing [/krav/enkelarv]. Please check for possible circle inheritance")
 			globalWarningCounter = globalWarningCounter + 1 
 	end if  
  end sub 
@@ -505,11 +731,12 @@ sub findMultipleInheritance(currentElement)
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkTVLanguageAndDesignation
-' Author: Sara Henriksen
-' Date: 26.07.16
+' Author: Sara Henriksen (original version), Åsmund Tjora
+' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17
 ' Purpose: Check if the ApplicationSchema-package got a tag named "language" and  check if the value is empty or not. 
-' And if there is a designation tag, checks that it has correct structure: "{name}"@{language}  
-' /krav/flersprålighet/pakke	
+' Check that designation tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) designation for ApplicationSchema packages
+' Check that definition tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) definition for ApplicationSchema packages
+' /krav/flersprålighet/pakke og /krav/taggedValueSpråk	
 ' sub procedure to check if the package has the provided tags with a value with correct structure
 ' @param[in]: theElement (Package Class) and taggedValueName (String)
 
@@ -534,7 +761,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					'check if the value is no or en, if not, retrun a warning 
 					if not mid(StrReverse(currentTaggedValue.Value),1,2) = "ne" and not mid(StrReverse(currentTaggedValue.Value),1,2) = "on" then	
 						if globalLogLevelIsWarning then
-							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke]")
+							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
 							globalWarningCounter = globalWarningCounter + 1 
 						end if
 					end if
@@ -542,36 +769,56 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					exit for 
 				end if   
 				if currentTaggedValue.Name = "language" and currentTaggedValue.Value= "" then 
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke]") 
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 					globalErrorCounter = globalErrorCounter + 1 
 					taggedValueLanguageMissing = false 
 					exit for 
 				end if 
  			next 
 			if taggedValueLanguageMissing then 
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke]") 
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if 
 	end if 
 
-	if taggedValueName = "designation" then
-		
+	if taggedValueName = "designation" or taggedValueName ="definition" then
+
 		if not theElement is nothing and Len(taggedValueName) > 0 then
 		
 			'check if the element has a tagged value with the provided name
 			dim currentExistingTaggedValue1 AS EA.TaggedValue 
+			dim valueExists
+			dim enDesignation
+			dim checkQuoteMark
+			dim checkAtMark
 			dim taggedValuesCounter1
+			valueExists=false
+			enDesignation = false
 			for taggedValuesCounter1 = 0 to theElement.TaggedValues.Count - 1
 				set currentExistingTaggedValue1 = theElement.TaggedValues.GetAt(taggedValuesCounter1)
 
 				'check if the tagged value exists, and checks if the value starts with " and ends with "@{language}, if not, return an error. 
 				if currentExistingTaggedValue1.Name = taggedValueName then
-				
-					if not len(currentExistingTaggedValue1.Value) = 0 then 
+					valueExists=true
+					checkQuoteMark=false
+					checkAtMark=false
 					
-						if not (mid(currentExistingTaggedValue1.Value, 1,1 )) = """" or not (mid(StrReverse(currentExistingTaggedValue1.Value), 1,4)) = "ne@"""  and not (mid(StrReverse(currentExistingTaggedValue1.Value), 1,4)) = "on@"""then	
-							Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [designation] has a value [" &currentExistingTaggedValue1.Value& "] with wrong structure. Expected structure: ""{Name}""@{language}. [/krav/flerspråklighet/pakke]")
+					if not len(currentExistingTaggedValue1.Value) = 0 then 
+
+						if (InStr(currentExistingTaggedValue1.Value, "@en")<>0) then 
+							enDesignation=true
+						end if
+						
+						if (mid(currentExistingTaggedValue1.Value, 1, 1) = """") then 
+							checkQuoteMark=true
+						end if
+						if (InStr(currentExistingTaggedValue1.value, """@")<>0) then 
+							checkAtMark=true
+						end if
+						
+						if not (checkAtMark and checkQuoteMark) then
+							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an illegal value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
@@ -580,17 +827,32 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 	
 						startContent = InStr( currentExistingTaggedValue1.Value, """" ) 			
 						endContent = len(currentExistingTaggedValue1.Value)- InStr( StrReverse(currentExistingTaggedValue1.Value), """" ) -1
-						designationContent = Mid(currentExistingTaggedValue1.Value,startContent+1,endContent)			
+						if endContent<0 then endContent=0
+						designationContent = Mid(currentExistingTaggedValue1.Value,startContent+1,endContent)				
 
 						if InStr(designationContent, """") then
 							if globalLogLevelIsWarning then
-								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [designation] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegeal use of quotation marks.")
+								Session.Output("Warning: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has a value ["&currentExistingTaggedValue1.Value&"] that contains illegal use of quotation marks.")
 								globalWarningCounter = globalWarningCounter + 1 
 							end if	
 						end if
+					else
+						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] has no value [/krav/taggedValueSpråk]") 
+						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if 						
 			next
+			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
+				if not valueExists then
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a " &taggedValueName& " tag [/krav/taggedValueSpråk]")
+					globalErrorCounter = globalErrorCounter + 1
+				else
+					if not enDesignation then
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] lacks a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
+						globalErrorCounter = globalErrorCounter + 1
+					end if
+				end if
+			end if
 		end if 
 	end if
 end sub 
@@ -916,8 +1178,6 @@ sub checkNumericinitialValues(theElement)
 				Session.Output("Warning: Class [«"&theElement.Stereotype&"» "&theElement.Name&"] \ attribute [" &attr.Name& "] has numeric initial value [" &attr.Default& "] that is probably meaningless. Recommended to use script <flyttInitialverdiPåKodelistekoderTilSOSITag>. [/anbefaling/1]")		
 				globalWarningCounter = globalWarningCounter + 1 
 			end if
-		else 
-		'no initial values in a list are numeric
 		end if 
 	next
 end sub
@@ -1232,7 +1492,7 @@ sub krav6mnemoniskKodenavn(theElement)
 		if NOT IsNCName(attr.Name) then
 			'count number of numeric initial values for one list
 			numberOfFaults = numberOfFaults + 1
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
 			if goodNames then
 				badName = attr.Name
 			end if
@@ -1242,7 +1502,7 @@ sub krav6mnemoniskKodenavn(theElement)
 		if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
 			numberOfWarnings = numberOfWarnings + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"].  Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
 			end if
 			lowerCameCase = false
 		End if
@@ -1322,7 +1582,7 @@ sub krav7kodedefinisjon(theElement)
 		if attr.Notes = "" then
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"]. [/krav/7]")
+				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"]. [/krav/7]")
 			end if
 			if goodNames then
 				badName = attr.Name
@@ -1367,8 +1627,39 @@ sub krav14(currentElement)
 			set elementOnOppositeSide = Repository.GetElementByID(targetElementID)
 			
 			if UCase(elementOnOppositeSide.Stereotype) <> UCase(currentElement.Stereotype) then
-				session.output("Error: The stereotype of class [" & elementOnOppositeSide.Name & "] is not the same as the stereotype of [" & currentElement.Name & "]. A class can only inherit from a class with the same stereotype. [/krav/14]")
+				session.output("Error: Class [" & elementOnOppositeSide.Name & "] has a stereotype that is not the same as the stereotype of [" & currentElement.Name & "]. A class can only inherit from a class with the same stereotype. [/krav/14]")
 				globalErrorCounter = globalErrorCounter + 1 
+			end if
+		end if
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Sub Name: req/general/feature
+' Author: Tore Johnsen
+' Date: 2017-02-22
+' Purpose: Checks that no classes with stereotype <<FeatureType>> inherits from a class named GM_Object or TM_Object.
+' @param[in]: currentElement, startClass
+
+sub reqGeneralFeature(currentElement, startClass)
+	
+	dim superClass as EA.Element
+	dim connector as EA.Connector
+
+	for each connector in currentElement.Connectors
+		if connector.Type = "Generalization" then
+			if UCASE(currentElement.Stereotype) = "FEATURETYPE" then
+				if currentElement.ElementID = connector.ClientID then
+					set superClass = Repository.GetElementByID(connector.SupplierID)
+
+					if UCASE(superClass.Name) = "GM_OBJECT" or UCASE(superClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(superClass.Stereotype) = "FEATURETYPE" then
+					session.output("Error: Class [" & startClass.Name & "] inherits from class [" & superclass.name & "] [req/general/feature]")
+					globalErrorCounter = globalErrorCounter + 1
+					else call reqGeneralFeature(superClass, startClass)
+					end if
+				end if
 			end if
 		end if
 	next
@@ -1407,7 +1698,7 @@ sub krav15stereotyper(theElement)
 		if attr.Stereotype <> "" then
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype. «" & attr.Stereotype & "» on attribute ["&attr.Name&"]. [/krav/15]")
+				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype. «" & attr.Stereotype & "» on attribute ["&attr.Name&"]. [/krav/15]")
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 			if goodNames then
@@ -1421,7 +1712,7 @@ sub krav15stereotyper(theElement)
 	'if one or more codes lack definition, warning.
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
-			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15 ]")
+			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15]")
 			globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
@@ -1444,7 +1735,7 @@ sub krav15stereotyper(theElement)
 		if roleName <> "" then
 			if badStereotype <> "" and LCase(badStereotype) <> "estimated" then
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] as unknown stereotype «"&badStereotype&"» on role name ["&roleName&"]. [/krav/15]")				
+					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] as unknown stereotype «"&badStereotype&"» on role name ["&roleName&"]. [/krav/15]")				
 					globalWarningCounter = globalWarningCounter + 1 
 				end if	
 			end if
@@ -1455,11 +1746,11 @@ sub krav15stereotyper(theElement)
 	for each conn in theElement.Connectors
 		if conn.Stereotype <> "" then
 			if LCase(conn.Stereotype) = "topo" then
- 				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. Recommended to use the script <endreTopoAssosiasjonTilRestriksjon>. [/krav/15 ]")				
+ 				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. Recommended to use the script <endreTopoAssosiasjonTilRestriksjon>. [/krav/15]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			else
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. [/krav/15]")				
+					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype «"&conn.Stereotype&"» on association named ["&conn.Name&"]. [/krav/15]")				
 					globalWarningCounter = globalWarningCounter + 1 
 				end if	
 			end if
@@ -1514,13 +1805,13 @@ sub krav16unikeNCnavn(theElement)
 		'(ignoring all association roles without name!)
 		if roleName <> "" then
 			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique role name ["&roleName&"]. [/krav/16]")				
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique role name ["&roleName&"]. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			else
 				PropertyNames.Add UCase(roleName)
 			end if
 			if NOT IsNCName(roleName) then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName. [/krav/16]")				
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if
@@ -1529,14 +1820,14 @@ sub krav16unikeNCnavn(theElement)
 	'Operation names
 	for each oper in theElement.Methods
 		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
 			globalErrorCounter = globalErrorCounter + 1 
 		else
 			PropertyNames.Add UCase(oper.Name)
 		end if
 		'check if the name is NCName
 		if NOT IsNCName(oper.Name) then
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName. [/krav/16]")				
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 		end if 
 	next
@@ -1548,7 +1839,7 @@ sub krav16unikeNCnavn(theElement)
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
-			Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique attribute property name ["&attr.Name&"]. [/krav/16]")				
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique attribute property name ["&attr.Name&"]. [/krav/16]")				
 			globalErrorCounter = globalErrorCounter + 1 
 		else
 			PropertyNames.Add UCase(attr.Name)
@@ -1558,7 +1849,7 @@ sub krav16unikeNCnavn(theElement)
 		if NOT ((theElement.Type = "Class") and (UCase(theElement.Stereotype) = "CODELIST"  Or UCase(theElement.Stereotype) = "ENUMERATION")) then
 			if NOT IsNCName(attr.Name) then
 				'count number of numeric initial values for one list
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal attribute name, ["&attr.Name&"] is not a NCName. [/krav/16]")				
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal attribute name, ["&attr.Name&"] is not a NCName. [/krav/16]")				
  				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if 
@@ -1580,7 +1871,7 @@ sub krav16unikeNCnavn(theElement)
 				for each inheritanceElementID in inheritanceElementList
 					if inheritanceElementID = super.ElementID then 
 						hopOutOfEndlessRecursion = 1
-						Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is a generalization of itself.")
+						Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] is a generalization of itself.")
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
@@ -1626,7 +1917,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 		if roleName <> "" then
 			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from. [/krav/16]")				
+					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from. [/krav/16]")				
 					globalWarningCounter = globalWarningCounter + 1
 				end if	
 			end if
@@ -1637,7 +1928,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 	for each oper in theElement.Methods
 		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
+				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
@@ -1651,7 +1942,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name["&attr.Name&"]. [/krav/16]")				
+				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name["&attr.Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
@@ -1671,7 +1962,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 				for each inheritanceElementID in inheritanceElementList
 					if inheritanceElementID = super.ElementID then 
 						hopOutOfEndlessRecursion = 1
-						Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is a generalization of itself.")
+						Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] is a generalization of itself.")
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
@@ -1861,18 +2152,8 @@ sub reqUmlProfile(theElement)
 		if attr.ClassifierID = 0 then
 			'check if the attribute has a well known core type
 			if ExtensionTypes.IndexOf(attr.Type,0) = -1 then	
-				Session.Output("Error: Class: [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"].   [/req/uml/profile  ]")
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"]. [/req/uml/profile]")
 				globalErrorCounter = globalErrorCounter + 1 
-			end if
-		else
-			'type link exists! type class name must be same as shown type name
-			if ExtensionTypes.IndexOf(attr.Type,0) <> -1 then	
-				'May have changed type back to a core type name, but not also set type link to <none> TODO
-				'Session.Output("Error: Type for attribute ["&attr.Name&" : "&attr.Type&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "] is of well known type but a type link also exist.   [/req/uml/profile ]")
-				'globalErrorCounter = globalErrorCounter + 1 
- 			else
-				'Test if name is same as name of linked type
-				'TODO
 			end if
 		end if 
 	next
@@ -1947,9 +2228,7 @@ function showAllProperties(theElement, diagram, diao)
 			if InStr(1,diagram.ExtendedStyle,"ShowCons=0") = 0 or diao.ShowConstraints or InStr(1,diao.Style,"Constraint=1" ) <> 0 or theElement.Constraints.Count = 0 then
 				' all attribute parts really shown? ...
 				if InStr(1,diagram.StyleEX,"VisibleAttributeDetail=1" ) = 0 or theElement.Attributes.Count = 0 then
-					' if show all connections then
-						showAllProperties = true
-					' end if
+					showAllProperties = true
 				end if
 			end if
 		end if
@@ -2009,13 +2288,13 @@ sub krav12(theElement, theConnector, theElementOnOppositeSide)
 	end if
 								
 	'check if the elementOnOppositeSide has stereotype "dataType" and this side's end is no composition and not elements both sides of the association are datatypes
-	if (Ucase(elementOnOppositeSide.Stereotype) = Ucase("dataType")) and not (currentConnector.ClientEnd.Aggregation = 2) and not dataTypeOnBothSides then 
+	if (Ucase(elementOnOppositeSide.Stereotype) = Ucase("dataType")) and not (currentConnector.ClientEnd.Aggregation = 2) and not dataTypeOnBothSides and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name &"] has association to class [" & currentElement.Name & "] that is not a composition on "& currentElement.Name &"-side. [/krav/12]")									 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 
 	'check if this side's element has stereotype "dataType" and the opposite side's end is no composition 
-	if (Ucase(currentElement.Stereotype) = Ucase("dataType")) and not (currentConnector.SupplierEnd.Aggregation = 2) and not dataTypeOnBothSides then 
+	if (Ucase(currentElement.Stereotype) = Ucase("dataType")) and not (currentConnector.SupplierEnd.Aggregation = 2) and not dataTypeOnBothSides and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&currentElement.Stereotype&"» "& currentElement.Name &"] has association to class [" & elementOnOppositeSide.Name & "] that is not a composition on "& elementOnOppositeSide.Name &"-side. [/krav/12]")									 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
@@ -2038,13 +2317,13 @@ end sub
 '				targetEndName (CharacterString). role name on association's target end
 '				sourceEndCardinality (CharacterString). multiplicity on association's source end
 '				targetEndCardinality (CharacterString). multiplicity on association's target end
-sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality)
-	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" then 
+sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & sourceEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
  								 
-	if targetEndNavigable = "Navigable" and targetEndCardinality = "" then 
+	if targetEndNavigable = "Navigable" and targetEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & targetEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
@@ -2065,14 +2344,14 @@ end sub
 '				sourceEndName (CharacterString). role name on association's source end
 '				targetEndName (CharacterString). role name on association's target end
 '				elementOnOppositeSide (EA.Element). The element on the opposite side of the association to check
-sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide)
-	if sourceEndNavigable = "Navigable" and sourceEndName = "" then 
-		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
+sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+	if sourceEndNavigable = "Navigable" and sourceEndName = "" and currentConnector.Type <> "Dependency" then
+		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
  								 
-	if targetEndNavigable = "Navigable" and targetEndName = "" then 
-		Session.Output( "Error : Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& elementOnOppositeSide.Name &"-side. [/krav/11]") 
+	if targetEndNavigable = "Navigable" and targetEndName = "" and currentConnector.Type <> "Dependency" then
+		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& elementOnOppositeSide.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
 	end if 
 end sub
@@ -2146,7 +2425,6 @@ sub checkEndingOfPackageName(thePackage)
 				if dotCounter < 3 then 
 					versionNumberInPackageName = true
 				else 
-					'Session.Output("for mange punktum")
 					versionNumberInPackageName = false
 				end if
 			end if 
@@ -2218,7 +2496,7 @@ sub checkUniqueFeatureTypeNames()
 		'generate error messages according to content of the temporary array
 		dim tempStoredFeatureType AS EA.Element
 		if temporaryFeatureTypeArray.count > 1 then
-			Session.Output("Error: Found nonunique names for the following classes. [req/uml/feature]")
+			Session.Output("Error: Found nonunique names for the following classes. [req/uml/feature] [req/general/feature]")
 			'counting one error per name conflict (not one error per class with nonunique name)
 			globalErrorCounter = globalErrorCounter + 1
 			for each tempStoredFeatureType in temporaryFeatureTypeArray
@@ -2287,6 +2565,432 @@ sub checkUtkast(thePackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Script Name: checkInstantiable
+' Author: Åsmund Tjora	
+' Date: 170223
+' Purpose: check that abstract classes has subclass within same application schema.  Check that no interface classes exists in application schema 
+' Input parameter:  theClass  The class that is checked
+
+sub checkInstantiable(theClass)
+	if (UCase(theClass.Stereotype) = "INTERFACE" or theClass.Type = "Interface") then
+		Session.Output("Error:  Class [«" &theClass.Stereotype& "» " &theClass.Name& "].  Interface stereotype for classes is not allowed in ApplicationSchema. [/req/uml/structure]")
+		globalErrorCounter = globalErrorCounter + 1
+	end if
+	if theClass.Abstract = "1" then
+		dim connector as EA.Connector
+		dim hasSpecializations
+		dim specInSameApplicationSchema
+		hasSpecializations=false
+		specInSameApplicationSchema=false
+		for each connector in theClass.Connectors
+			if connector.Type = "Generalization" then
+				if theClass.ElementID = connector.SupplierID then
+					hasSpecializations=true					
+					dim subClass as EA.Element
+					dim pkID
+					set subClass = Repository.GetElementByID(connector.ClientID)
+					for each pkID in globalPackageIDList
+						if subClass.PackageID = pkID then specInSameApplicationSchema=true
+					next
+				end if
+			end if
+		next
+		if not (hasSpecializations and specInSameApplicationSchema) then
+			Session.Output("Error: Class [«" &theClass.Stereotype& "» " &theClass.Name& "]. Abstract class does not have any instantiable specializations in the ApplicationSchema. [/req/uml/structure]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+	end if
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+
+' Script Name: checkPackageDependency
+' Author: Åsmund Tjora, Magnus Karge
+' Date: 170329
+' Purpose: Check that elements in external packages are accessible through package dependencies.  Check that dependency diagrams show these dependencies. 
+' Input parameter:  thePackage:  Package to be checked
+
+sub checkPackageDependency(thePackage)
+
+	'dim packageDependencies - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
+	'set packageDependencies=CreateObject("System.Collections.ArrayList")
+	'packageDependenciesShown - List of package dependencies shown in package diagrams
+	dim packageDependenciesShown
+	set packageDependenciesShown=CreateObject("System.Collections.ArrayList")
+
+	'get package dependencies declared in ApplicationSchema model
+	'call findPackageDependencies(thePackage.Element, packageDependencies) - NOT IN USE - GLOBAL VARIABLE USED INSTEAD
+	'get package dependencies actually shown in package diagrams in model
+	call findPackageDependenciesShown(thePackage, packageDependenciesShown)
+	
+	'---
+	'compare "real" dependencies made by referencing out-of-package elements with
+	'package dependencies declared in model and dependencies shown in diagrams
+	dim packageElementID
+	dim investigatedPackage
+	dim investigatedElement
+	dim elementID
+	dim package as EA.Package
+	dim packageID
+	dim i
+	' do stuff to compare the packages containing actual (element) references, the declared dependencies and the shown dependencies
+	for i = 0 to globalListPackageIDsOfPackagesToBeReferenced.Count-1
+		packageID = globalListPackageIDsOfPackagesToBeReferenced(i)
+		set package = Repository.GetPackageByID(packageID)
+		packageElementID=package.Element.ElementID
+		if not packageDependenciesShown.Contains(packageElementID) then
+			elementID = globalListClassifierIDsOfExternalReferencedElements(i)
+			set investigatedPackage=Repository.GetElementByID(packageElementID)
+			set investigatedElement=Repository.GetElementByID(elementID)
+	'		if not globalListPackageElementIDsOfPackageDependencies.Contains(packageElementID) then
+	'			Session.Output("Error: Use of element " & investigatedElement.Name & " from package " & investigatedPackage.Name & " is not listed in model dependencies [/req/uml/integration]")
+	'		else
+			Session.Output("Error: Dependency on package [" & investigatedPackage.Name & "] needed for the use of element [" & investigatedElement.Name & "] is not shown in any package diagram [/krav/17][/krav/21]")
+			globalErrorCounter=globalErrorCounter+1 
+	'		end if
+		end if
+	next
+	
+	'check that dependencies are between ApplicationSchema packages.
+	for each packageElementID in globalListPackageElementIDsOfPackageDependencies
+		set investigatedPackage=Repository.GetElementByID(packageElementID)
+		if not UCase(investigatedPackage.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Warning: Dependency to package [«" & investigatedPackage.Stereotype & "» " & investigatedPackage.Name & "] found.  Dependencies shall only be to ApplicationSchema packages or Standard schemas. [req/uml/integration]")
+			globalWarningCounter = globalWarningCounter + 1
+		end if
+	next
+end sub
+
+sub findPackageDependencies(thePackageElement)
+	dim connectorList as EA.Collection
+	dim packageConnector as EA.Connector
+	dim dependee as EA.Element
+	
+	set connectorList=thePackageElement.Connectors
+	
+	for each packageConnector in connectorList
+		if packageConnector.Type="Usage" or packageConnector.Type="Package" or packageConnector.Type="Dependency" then
+			if thePackageElement.ElementID = packageConnector.ClientID then
+				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
+				globalListPackageElementIDsOfPackageDependencies.Add(dependee.ElementID)
+				'Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
+				'call findPackageDependencies(dependee)
+			end if
+		end if
+	next
+end sub
+
+sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID, dependencyList)
+	'recursively traverse the packages in a diagram in order to get the full dependencyList.
+	dim elementList
+	set elementList=diagram.DiagramObjects
+	dim diagramElement
+	dim modelElement
+	dim linkList
+	set linkList=diagram.diagramLinks
+	dim diagramLink
+	dim modelLink
+	
+	for each diagramLink in linkList
+		set modelLink=Repository.GetConnectorByID(diagramLink.ConnectorID)
+		if modelLink.Type = "Package" or modelLink.Type = "Usage" or modelLink.Type="Dependency" then
+			if modelLink.ClientID = investigatedPackageElementID then
+				dim supplier
+				dim client
+				set supplier = Repository.GetElementByID(modelLink.SupplierID)
+				set client = Repository.GetElementByID(modelLink.ClientID)
+				dependencyList.Add(modelLink.SupplierID)
+				'Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
+				'call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
+				if diagramLink.IsHidden and globalLogLevelIsWarning then
+					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
+					globalWarningCounter=globalWarningCounter+1
+				end if
+			end if
+		end if
+	next
+end sub
+
+sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+	
+	dim diagramList
+	set diagramList=thePackage.Diagrams
+	dim subPackageList
+	set subPackageList=thePackage.Packages
+	dim diagram
+	dim subPackage
+	
+	'Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
+	for each diagram in diagramList
+		if diagram.Type="Package" then
+			packageDiagramIDList.Add(diagram.DiagramID)
+			'Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
+		end if
+	next
+	for each subPackage in subPackageList
+		call getAllPackageDiagramIDs(subPackage, packageDiagramIDList)
+	next
+end sub
+	
+
+sub findPackageDependenciesShown(thePackage, dependencyList)
+	dim thePackageElementID
+	thePackageElementID = thePackage.Element.ElementID
+	dim packageDiagramIDList
+	set packageDiagramIDList=CreateObject("System.Collections.ArrayList")
+	dim diagramID
+	dim diagram
+	dim subPackage
+
+'	set diagramList=thePackage.Diagrams
+'	set subPackageList=thePackage.Packages
+
+	call getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
+
+	for each diagramID in packageDiagramIDList
+		set diagram=Repository.GetDiagramByID(diagramID)
+		call findpackageDependenciesShownRecursive(diagram, thePackageElementID, dependencyList)
+	next	
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: findPackagesToBeReferenced
+' Author: Magnus Karge
+' Date: 20170303
+' Purpose: 	to collect the IDs of all packages the applicationSchema package is dependent on
+'			populates globalListPackageIDsOfPackagesToBeReferenced
+' Input parameter:  none, uses global variable globalListClassifierIDsOfExternalReferencedElements
+
+sub findPackagesToBeReferenced()
+	dim externalReferencedElementID
+	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.size)
+	dim debugcount
+	debugcount=0
+	dim currentExternalElement as EA.Element
+	dim arrayCounter
+	'Session.Output("!DEBUG! Elements in list: "& globalListClassifierIDsOfExternalReferencedElements.count)
+	for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
+		debugcount = debugcount + 1
+		'Session.Output("!DEBUG! Iteration of for: "& debugcount)
+		'Session.Output("!DEBUG! externalReferencedElementID: "& externalReferencedElementID)
+		set currentExternalElement = Repository.GetElementByID(externalReferencedElementID)
+		dim parentPackageID
+		parentPackageID = currentExternalElement.PackageID 'here the parentPackageID is the ID of the package containing the external element
+		
+		'temporal variable containing list of packageIDs of AppSchemaPackages in package hierarchy upwards from the external referenced element
+		dim tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy
+		set tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy=CreateObject("System.Collections.ArrayList")
+		
+		'temporal variable containing list of packageIDs of referenced packages in package hierarchy upwards from the external referenced element
+		dim tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+		set tmpListPackageIDsOfReferencedPackagesFoundInHierarchy=CreateObject("System.Collections.ArrayList")
+		
+		dim parentPackageIsApplicationSchema
+		parentPackageIsApplicationSchema = false
+		dim parentPackage as EA.Package
+		if (not parentPackageID = 0) then 'meaning that there is a package
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			
+			'check if parentPackage is package and not model
+			if (not parentPackage.IsModel) then
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
+				end if
+			end if	
+			
+			'check if parentPackage has dependency from the startpackage
+			if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
+				tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+			end if
+			
+		end if
+		
+		dim tempPackageIDOfPotentialPackageToBeReferenced
+		tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+		
+		
+		
+		'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0) or finding a package with stereotype applicationSchema
+		do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
+			parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
+			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID)
+			'Session.Output("!DEBUG! parentPackageName = "& parentPackageID)
+			set parentPackage = Repository.GetPackageByID(parentPackageID)
+			'Session.Output("!DEBUG! parentPackageName = "& parentPackage.Name)
+			
+			if (not parentPackage.IsModel) then 
+				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+					parentPackageIsApplicationSchema = true
+					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
+					tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
+					
+				end if
+				'check if parentPackage has dependency from the startpackage
+				if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
+					tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+				end if
+
+			end if
+			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID & "   parentPackageIsApplicationSchema = "&parentPackageIsApplicationSchema &" parentPackageName: "&parentPackage.Name)
+		loop
+		'Session.Output("!DEBUG! out of loop")
+		'add the temporal package ID to the global list
+		'the temporal package ID is either the package containing the external element
+		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
+		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
+		
+		'Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
+		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "&externalReferencedElementID)
+		
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
+		'Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
+		
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
+			Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
+			Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 0 then
+			'TODO does only check the first applicationSchema package found --> to be improved
+			dim packageIDOfFirstAppSchemaPackageFoundInHierarchy
+			packageIDOfFirstAppSchemaPackageFoundInHierarchy = tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)
+			dim packageIDOfReferencedPackage
+			if not tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+				Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please exchange the modelled dependency to the following package(s) because of an existing applicationSchema package in the package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
+				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+					Session.Output("       Exchange dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"] with dependency to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"]")
+					
+				next
+			elseif tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+				Session.Output("ERROR: Found redundant dependency related to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+				Session.Output("       Please remove additional modelled dependency to the following package(s) in the same package hierarchy:")
+				globalErrorCounter = globalErrorCounter + 1
+				for each packageIDOfReferencedPackage in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy
+					if not packageIDOfFirstAppSchemaPackageFoundInHierarchy = packageIDOfReferencedPackage then
+						Session.Output("       Remove dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"]")
+					end if
+				next
+			
+			end if
+		end if
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'------------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Function Name: getElementIDsOfExternalReferencedElements
+' Author: Magnus Karge
+' Date: 20170228
+' Purpose: 	to collect the IDs of all elements not part of the applicationSchema package but referenced from elements in
+'			thePackage or subpackages (e.g. via associations or types of attributes) 
+'			populates globalListClassifierIDsOfExternalReferencedElements
+' Input parameter:  thePackage:EA.Package, uses global variable globalListAllClassifierIDsInApplicationSchema
+
+sub getElementIDsOfExternalReferencedElements(thePackage)
+			
+	dim elementsInPackage as EA.Collection
+	set elementsInPackage = thePackage.Elements
+	
+	dim subpackages as EA.Collection 
+	set subpackages = thePackage.Packages 'collection of packages that belong to thePackage	
+			
+	'Navigate the package collection and call the getElementIDsOfExternalElements sub for each of the packages 
+	dim p 
+	for p = 0 to subpackages.Count - 1 
+		dim currentPackage as EA.Package 
+		set currentPackage = subpackages.GetAt( p ) 
+		getElementIDsOfExternalReferencedElements(currentPackage) 
+	next 
+ 			 
+ 	'------------------------------------------------------------------ 
+	'---ELEMENTS--- 
+	'------------------------------------------------------------------		 
+ 			 
+	' Navigate the elements collection, pick the classes, find the definitions/notes and do sth. with it 
+	'Session.Output( " number of elements in package: " & elements.Count) 
+	dim e 
+	for e = 0 to elementsInPackage.Count - 1 
+		dim currentElement as EA.Element 
+		set currentElement = elementsInPackage.GetAt( e ) 
+		
+		'check all attributes
+		dim listOfAttributes as EA.Collection
+		set listOfAttributes = currentElement.Attributes
+		dim a
+		for a = 0 to listOfAttributes.Count - 1 
+			dim currentAttribute as EA.Attribute
+			set currentAttribute = listOfAttributes.GetAt(a)
+			'check if classifier id is connected to a base type - not a primitive type (not 0) and if it 
+			'is part of globalListAllClassifierIDsInApplicationSchema
+			if not currentAttribute.ClassifierID = 0 AND not globalListAllClassifierIDsInApplicationSchema.contains(currentAttribute.ClassifierID) then
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] not in list globalListAllClassifierIDsInApplicationSchema and not 0") 
+				if not globalListClassifierIDsOfExternalReferencedElements.Contains(currentAttribute.ClassifierID) then
+					'add to list if not contained already
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentAttribute.ClassifierID)
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				else
+					'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			else 
+				'Session.Output( "!DEBUG! ID [" & currentAttribute.ClassifierID & "] already in list globalListAllClassifierIDsInApplicationSchema or 0") 
+			end if
+		next	
+		
+		'check all connectors
+		dim listOfConnectors as EA.Collection
+		set listOfConnectors = currentElement.Connectors
+		dim c
+		for c = 0 to listOfConnectors.Count - 1 
+			dim currentConnector as EA.Connector
+			set currentConnector = listOfConnectors.GetAt(c)
+			'check if this element is on source side of connector - if not ignore (could be external connectors pointing to the element)
+			' and if id is in globalListAllClassifierIDsInApplicationSchema
+			if currentElement.ElementID = currentConnector.ClientID AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
+				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
+					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
+				'else
+					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
+				end if
+			'else
+				'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
+			end if
+		next	
+		
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+'Sub name: 		CheckSubPackageStereotype
+'Author: 		Åsmund Tjora
+'Date: 			20170228
+'Purpose: 		Check the stereotypes of sub packages.  Only the root shall have stereotype "ApplicationSchema" 
+'Parameters:	rootPackage  The package to be added to the list and investigated for subpackages
+' 
+sub CheckSubPackageStereotype(rootPackage)
+	dim subPackageList as EA.Collection
+	dim subPackage as EA.Package
+	set subPackageList = rootPackage.Packages
+	
+	for each subPackage in subPackageList
+		if UCase(subPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Error: Package [«" &subPackage.Element.Stereotype& "» " &subPackage.Name& "]. Package with stereotype ApplicationSchema cannot contain subpackages with stereotype ApplicationSchema. [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if	
+	next
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
@@ -2314,6 +3018,8 @@ sub FindInvalidElementsInPackage(package)
 	call checkEndingOfPackageName(package)
 	call checkUtkast(package)
 	
+	call checkSubPackageStereotype(package)
+	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
 	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
 		Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"]. [/krav/16]")				
@@ -2332,6 +3038,7 @@ sub FindInvalidElementsInPackage(package)
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "language" or "designation" with any content [/krav/flerspråklighet/pakke]
 	Call checkTVLanguageAndDesignation (package.Element, "language") 
 	Call checkTVLanguageAndDesignation (package.Element, "designation")
+	Call checkTVLanguageAndDesignation (package.Element, "definition")
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "version" with any content [/req/uml/packaging ]	
 	Call checkValueOfTVVersion( package.Element , "version" ) 
 	'iterate the tagged values collection and check if the applicationSchema package has a tagged value "SOSI_modellstatus" that is valid [/krav/SOSI-modellregister/ applikasjonsskjema/status]
@@ -2387,7 +3094,11 @@ sub FindInvalidElementsInPackage(package)
 				
 		'check elements' stereotype for right use of lower- and uppercase [/anbefaling/styleGuide]
 		Call checkStereotypes(currentElement)	
- 				 
+ 				
+		if (currentElement.Type="Class" or currentElement.Type="Interface") then
+			call checkInstantiable(currentElement)
+		end if
+				
 		'Is the currentElement of type Class and stereotype codelist or enumeration, check the initial values are numeric or not (/anbefaling/1)
 		if ((currentElement.Type = "Class") and (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION") Or currentElement.Type = "Enumeration") then
 			call checkNumericinitialValues(currentElement)
@@ -2395,7 +3106,8 @@ sub FindInvalidElementsInPackage(package)
 
 		' check if inherited stereotypes are all the same
 		Call krav14(currentElement)
-
+		' check that no class inherits from a class named GM_Object or TM_Object
+		Call reqGeneralFeature(currentElement, currentElement)
 		' ---ALL CLASSIFIERS---
 		'Iso 19103 Requirement 16 - unique NCNames of all properties within the classifier.
 		'Inherited properties  also included, strictly not an error situation but implicit redefinition is not well supported anyway
@@ -2586,20 +3298,7 @@ sub FindInvalidElementsInPackage(package)
 					Call structurOfTVforElement(clientEnd, "definition")
 				end if 		
  							
-				'constraints 
-				dim constraintRCollection as EA.Collection 
-				set constraintRCollection = currentConnector.Constraints 
-							
-				if constraintRCollection.Count > 0 then 
-					dim constraintRCounter 
-					for constraintRCounter = 0 to constraintRCollection.Count - 1 					 
-						dim currentRConstraint as EA.Constraint		 
-						set currentRConstraint = constraintRCollection.GetAt(constraintRCounter) 
-						'check if the connectors got constraints that lacks name or definition (/req/uml/constraint)
-						Call checkConstraint(currentRConstraint, currentConnector)
-					next
-				end if 
-							
+											
 				dim sourceElementID 
 				sourceElementID = currentConnector.ClientID 
 				dim sourceEndNavigable  
@@ -2630,6 +3329,28 @@ sub FindInvalidElementsInPackage(package)
 				 							 
 				dim elementOnOppositeSide as EA.Element 
 				if currentElement.ElementID = sourceElementID and not currentConnector.Type = "Realisation" and not currentConnector.Type = "Generalization" then 
+					
+					'------------------------------------------------------------------ 
+					'---'ASSOSIATION'S CONSTRAINTS--- 
+					'----START-------------------------------------------------------------- 
+					
+					dim constraintRCollection as EA.Collection 
+					set constraintRCollection = currentConnector.Constraints 
+							
+					if constraintRCollection.Count > 0 then 
+						dim constraintRCounter 
+						for constraintRCounter = 0 to constraintRCollection.Count - 1 					 
+							dim currentRConstraint as EA.Constraint		 
+							set currentRConstraint = constraintRCollection.GetAt(constraintRCounter) 
+							'check if the connectors got constraints that lacks name or definition (/req/uml/constraint)
+							Call checkConstraint(currentRConstraint, currentConnector)
+						next
+					end if 
+					
+					'----END-------------------------------------------------------------- 
+					'---'ASSOSIATION'S CONSTRAINTS--- 
+					'------------------------------------------------------------------ 
+					
 					set elementOnOppositeSide = Repository.GetElementByID(targetElementID) 
  								 
 					'if the connector has a name (optional according to the rules), check if it starts with capital letter 
@@ -2643,10 +3364,10 @@ sub FindInvalidElementsInPackage(package)
 					CheckDefinition(currentConnector) 
  																								 
 					'check if there is multiplicity on navigable ends (krav/10)
-					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality)
+					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 					 
 					'check if there are role names on navigable ends  (krav/11)
-					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide)
+					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 																		 
 					'check if role names on connector ends start with lower case (regardless of navigability) (krav/navning)
 					call checkRoleNames(currentElement, sourceEndName, targetEndName, elementOnOppositeSide)
@@ -2723,5 +3444,26 @@ dim FeatureTypeNames
 Set FeatureTypeNames = CreateObject("System.Collections.ArrayList")
 dim FeatureTypeElementIDs
 Set FeatureTypeElementIDs = CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of the starting package and all subpackages
+dim globalPackageIDList
+set globalPackageIDList=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of all classifier ids within the application schema
+dim globalListAllClassifierIDsInApplicationSchema
+set globalListAllClassifierIDsInApplicationSchema=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of all classifier ids of elements not part of the application schema but
+'referenced from elements within the application schema 
+dim globalListClassifierIDsOfExternalReferencedElements
+set globalListClassifierIDsOfExternalReferencedElements=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of pckage IDs to be referenced
+dim globalListPackageIDsOfPackagesToBeReferenced
+set globalListPackageIDsOfPackagesToBeReferenced=CreateObject("System.Collections.ArrayList")
+
+'global variable containing list of package element IDs of modelled dependencies
+dim globalListPackageElementIDsOfPackageDependencies
+set globalListPackageElementIDsOfPackageDependencies=CreateObject("System.Collections.ArrayList")
 
 OnProjectBrowserScript 
