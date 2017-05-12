@@ -10,9 +10,9 @@
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
 
-' Version: 1.1.2
+' Version: 1.1.3
 
-' Date: 2017-02-02 
+' Date: 2017-05-12 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -116,141 +116,126 @@
  			' Code for when a package is selected 
  			dim thePackage as EA.Package 
  			set thePackage = Repository.GetTreeSelectedObject() 
- 			'check if the selected package has stereotype applicationSchema 
- 			if UCase(thePackage.element.stereotype) = UCase("applicationSchema") then 
+ 			
+			if not thePackage.IsModel then
+				'check if the selected package has stereotype applicationSchema 
+ 			
+				if UCase(thePackage.element.stereotype) = UCase("applicationSchema") then 
 				
-				dim box, mess
-				'mess = 	"Model validation 2016-08-19 Logging errors and warnings."&Chr(13)&Chr(10)
-				mess = "Model validation based on requirements and recommendations in SOSI standard 'Regler for UML-modellering 5.0'"&Chr(13)&Chr(10)
-				mess = mess + ""&Chr(13)&Chr(10)
-				mess = mess + "Please find a list with the implemented rules in this script's source code (line 15++)."&Chr(13)&Chr(10)
-				'mess= mess +  "/krav/3 - elements with definition."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/definisjoner - packages and constraints with definition."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/6 (Iso 19103 Req 6) - NCNames for codes."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/7 (Iso 19103 Req 7) - definition on codes."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/10	(Iso 19103 Req 10) - multiplicity."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/11	(Iso 19103 Req 11) - role names."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/flerspråklighet/pakke - tagged value 'language'."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/12	(Iso 19103 Req 12) - datatypes target in composition."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/enkelArv - single inheritance."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/Navning - all names CamelCase."&Chr(13)&Chr(10)
-				'mess = mess + "/anbefaling/1 (Iso 19103 Rec 1) - meaningful initial values."&Chr(13)&Chr(10)
-				'mess = mess + "/req/uml/packaging (Iso 19109) - tagged value 'version'."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/SOSI-modellregister - known SOSI model registry status codes."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/14	(Iso 19103 Req 14) - inherit from same stereotypes."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/15	(Iso 19103 Req 15) - known stereotypes."&Chr(13)&Chr(10)
-				'mess = mess + "/krav/16	(Iso 19103 Req 16) - legal NCNames case-insensitively unique."&Chr(13)&Chr(10)
-				'mess = mess + "/req/uml/profile	(Iso 19103, 19107, 19109) - well known types."&Chr(13)&Chr(10)
-				mess = mess + ""&Chr(13)&Chr(10)
-				mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
+					dim box, mess
+					'mess = 	"Model validation 2016-08-19 Logging errors and warnings."&Chr(13)&Chr(10)
+					mess = "Model validation based on requirements and recommendations in SOSI standard 'Regler for UML-modellering 5.0'"&Chr(13)&Chr(10)
+					mess = mess + ""&Chr(13)&Chr(10)
+					mess = mess + "Please find a list with the implemented rules in this script's source code (line 15++)."&Chr(13)&Chr(10)
+					mess = mess + ""&Chr(13)&Chr(10)
+					mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
-				select case box
-					case vbOK
-						'inputBoxGUI to receive user input regarding the log level
-						dim logLevelFromInputBox, logLevelInputBoxText, correctInput, abort
-						logLevelInputBoxText = "Please select the log level."&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ "E - Error log level: logs error messages only."&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ "W - Warning log level (recommended): logs error and warning messages."&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-						logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W:"&Chr(13)&Chr(10)
-						correctInput = false
-						abort = false
-						do while not correctInput
+					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
+					select case box
+						case vbOK
+							'inputBoxGUI to receive user input regarding the log level
+							dim logLevelFromInputBox, logLevelInputBoxText, correctInput, abort
+							logLevelInputBoxText = "Please select the log level."&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "E - Error log level: logs error messages only."&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "W - Warning log level (recommended): logs error and warning messages."&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W:"&Chr(13)&Chr(10)
+							correctInput = false
+							abort = false
+							do while not correctInput
 						
-							logLevelFromInputBox = InputBox(logLevelInputBoxText, "Select log level", "W")
-							select case true 
-								case UCase(logLevelFromInputBox) = "E"	
-									'code for when E = Error log level has been selected, only Error messages will be shown in the Script Output window
-									globalLogLevelIsWarning = false
-									correctInput = true
-								case UCase(logLevelFromInputBox) = "W"	
-									'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
-									globalLogLevelIsWarning = true
-									correctInput = true
-								case IsEmpty(logLevelFromInputBox)
-									'user pressed cancel or closed the dialog
-									MsgBox "Abort",64
-									abort = true
-									exit do
-								case else
-									MsgBox "You made an incorrect selection! Please enter either 'E' or 'W'.",48
-							end select
-						
-						loop
-						
-						if not abort then
-              
-							'Check model for script breaking structures
-							if scriptBreakingStructuresInModel(thePackage) then
-								Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
-								Session.Output("Aborting Script.")
-								exit sub
-							end if
+								logLevelFromInputBox = InputBox(logLevelInputBoxText, "Select log level", "W")
+								select case true 
+									case UCase(logLevelFromInputBox) = "E"	
+										'code for when E = Error log level has been selected, only Error messages will be shown in the Script Output window
+										globalLogLevelIsWarning = false
+										correctInput = true
+									case UCase(logLevelFromInputBox) = "W"	
+										'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
+										globalLogLevelIsWarning = true
+										correctInput = true
+									case IsEmpty(logLevelFromInputBox)
+										'user pressed cancel or closed the dialog
+										MsgBox "Abort",64
+										abort = true
+										exit do
+									case else
+										MsgBox "You made an incorrect selection! Please enter either 'E' or 'W'.",48
+								end select
 							
-							call populatePackageIDList(thePackage)
-							call populateClassifierIDList(thePackage)
-							call findPackageDependencies(thePackage.Element)
-							call getElementIDsOfExternalReferencedElements(thePackage)
-							call findPackagesToBeReferenced()
+							loop
 							
-							call checkPackageDependency(thePackage)
+							if not abort then
+				
+								'Check model for script breaking structures
+								if scriptBreakingStructuresInModel(thePackage) then
+									Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
+									Session.Output("Aborting Script.")
+									exit sub
+								end if
+							
+								call populatePackageIDList(thePackage)
+								call populateClassifierIDList(thePackage)
+								call findPackageDependencies(thePackage.Element)
+								call getElementIDsOfExternalReferencedElements(thePackage)
+								call findPackagesToBeReferenced()
+								call checkPackageDependency(thePackage)
+							
+								'For /krav/18:
+								set startPackage = thePackage
+								Set diaoList = CreateObject( "System.Collections.Sortedlist" )
+								Set diagList = CreateObject( "System.Collections.Sortedlist" )
+								recListDiagramObjects(thePackage)
 
-							
-							'For /krav/18:
-							set startPackage = thePackage
-							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
-							Set diagList = CreateObject( "System.Collections.Sortedlist" )
-							recListDiagramObjects(thePackage)
-
-							Dim StartTime, EndTime, Elapsed
-							StartTime = timer 
-							startPackageName = thePackage.Name
-							FindInvalidElementsInPackage(thePackage) 
-							Elapsed = formatnumber((Timer - StartTime),2)
-							'------------------------------------------------------------------ 
-							'---Check global variables--- 
-							'------------------------------------------------------------------ 
+								Dim StartTime, EndTime, Elapsed
+								StartTime = timer 
+								startPackageName = thePackage.Name
+								FindInvalidElementsInPackage(thePackage) 
+								Elapsed = formatnumber((Timer - StartTime),2)
+								'------------------------------------------------------------------ 
+								'---Check global variables--- 
+								'------------------------------------------------------------------ 
 							
 														
-							'check uniqueness of featureType names
-							checkUniqueFeatureTypeNames()
+								'check uniqueness of featureType names
+								checkUniqueFeatureTypeNames()
 	
-							'error-message for /krav/hoveddiagram/navning (sub procedure: CheckPackageForHoveddiagram)
-							'if the applicationSchema package got less than one diagram with a name starting with "Hoveddiagram", then return an error 	
-							if 	not foundHoveddiagram  then
-								Session.Output("Error: Neither package [" &startPackageName& "] nor any of it's subpackages has a diagram with a name starting with 'Hoveddiagram' [/krav/hoveddiagram/navning]")
-								globalErrorCounter = globalErrorCounter + 1 
+								'error-message for /krav/hoveddiagram/navning (sub procedure: CheckPackageForHoveddiagram)
+								'if the applicationSchema package got less than one diagram with a name starting with "Hoveddiagram", then return an error 	
+								if 	not foundHoveddiagram  then
+									Session.Output("Error: Neither package [" &startPackageName& "] nor any of it's subpackages has a diagram with a name starting with 'Hoveddiagram' [/krav/hoveddiagram/navning]")
+									globalErrorCounter = globalErrorCounter + 1 
 					
-							end if 	
+								end if 	
 							
-							'error-message for /krav/hoveddiagram/detaljering/navning (sub: FindHoveddiagramsInAS)
-							'if the applicationSchema package got more than one diagram named "Hoveddiagram", then return an error 
-							if numberOfHoveddiagram > 1 or (numberOfHoveddiagram = 1 and numberOfHoveddiagramWithAdditionalInformationInTheName > 0) then 
-								dim sumOfHoveddiagram 
-								sumOfHoveddiagram = numberOfHoveddiagram + numberOfHoveddiagramWithAdditionalInformationInTheName
-								Session.Output("Error: Package ["&startPackageName&"] has "&sumOfHoveddiagram&" diagrams named 'Hoveddiagram' and "&numberOfHoveddiagram&" of them named exactly 'Hoveddiagram'. When there are multiple diagrams of that type additional information is expected in the diagrams' name. [/krav/hoveddiagram/detaljering/navning]")
-								globalErrorCounter = globalErrorCounter + 1 
+								'error-message for /krav/hoveddiagram/detaljering/navning (sub: FindHoveddiagramsInAS)
+								'if the applicationSchema package got more than one diagram named "Hoveddiagram", then return an error 
+								if numberOfHoveddiagram > 1 or (numberOfHoveddiagram = 1 and numberOfHoveddiagramWithAdditionalInformationInTheName > 0) then 
+									dim sumOfHoveddiagram 
+									sumOfHoveddiagram = numberOfHoveddiagram + numberOfHoveddiagramWithAdditionalInformationInTheName
+									Session.Output("Error: Package ["&startPackageName&"] has "&sumOfHoveddiagram&" diagrams named 'Hoveddiagram' and "&numberOfHoveddiagram&" of them named exactly 'Hoveddiagram'. When there are multiple diagrams of that type additional information is expected in the diagrams' name. [/krav/hoveddiagram/detaljering/navning]")
+									globalErrorCounter = globalErrorCounter + 1 
 			
-							end if 
+								end if 
 	
-							
-							Session.Output("Number of errors found: " & globalErrorCounter) 
-							if globalLogLevelIsWarning then
-								Session.Output("Number of warnings found: " & globalWarningCounter)
+								Session.Output("Number of errors found: " & globalErrorCounter) 
+								if globalLogLevelIsWarning then
+									Session.Output("Number of warnings found: " & globalWarningCounter)
+								end if	
+								Session.Output("Run time: " &Elapsed& " seconds" )
 							end if	
-							Session.Output("Run time: " &Elapsed& " seconds" )
-						end if	
-					case VBcancel
-						'nothing to do						
-				end select 
-			else 
+						case VBcancel
+							'nothing to do						
+					end select 
+				else 
  				Msgbox "Package [" & thePackage.Name &"] does not have stereotype «ApplicationSchema». Select a package with stereotype «ApplicationSchema» to start model validation." 
- 			end if 
- 			 
+				end if
+			else
+			Msgbox "Package [" & thePackage.Name &"] is a root package and does not have stereotype «ApplicationSchema». Select a non-root-package with stereotype «ApplicationSchema» to start model validation."
+ 			end if
  			 
  			 
 '		case otDiagram 
@@ -2766,7 +2751,7 @@ end sub
 
 sub findPackagesToBeReferenced()
 	dim externalReferencedElementID
-	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.size)
+	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.count)
 	dim debugcount
 	debugcount=0
 	dim currentExternalElement as EA.Element
@@ -2777,6 +2762,7 @@ sub findPackagesToBeReferenced()
 		'Session.Output("!DEBUG! Iteration of for: "& debugcount)
 		'Session.Output("!DEBUG! externalReferencedElementID: "& externalReferencedElementID)
 		set currentExternalElement = Repository.GetElementByID(externalReferencedElementID)
+		'Session.Output("!DEBUG! currentExternalElement: "& currentExternalElement.Name)
 		dim parentPackageID
 		parentPackageID = currentExternalElement.PackageID 'here the parentPackageID is the ID of the package containing the external element
 		
@@ -2793,18 +2779,22 @@ sub findPackagesToBeReferenced()
 		dim parentPackage as EA.Package
 		if (not parentPackageID = 0) then 'meaning that there is a package
 			set parentPackage = Repository.GetPackageByID(parentPackageID)
-			
+			'Session.Output("	      !DEBUG! parentPackage: "& parentPackage.Name)
 			'check if parentPackage is package and not model
 			if (not parentPackage.IsModel) then
+				'Session.Output("	      !DEBUG! parentPackage is not 'model'")
 				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
 					parentPackageIsApplicationSchema = true
 					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
+					'Session.Output("	      !DEBUG! parentPackageIsApplicationSchema")
+					'Session.Output("	      !DEBUG! parentPackageID added to tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy") 
 				end if
 			end if	
 			
 			'check if parentPackage has dependency from the startpackage
 			if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
 				tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+				'Session.Output("	      !DEBUG!ADDED: package "& Repository.GetPackageByID(parentPackageID).name &" has dependency from start package - added to tmpListPackageIDsOfReferencedPackagesFoundInHierarchy")
 			end if
 			
 		end if
@@ -2817,46 +2807,49 @@ sub findPackagesToBeReferenced()
 		'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0) or finding a package with stereotype applicationSchema
 		do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
 			parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
-			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID)
-			'Session.Output("!DEBUG! parentPackageName = "& parentPackageID)
+			'Session.Output("	      !DEBUG! parentPackageID = "& parentPackageID)
 			set parentPackage = Repository.GetPackageByID(parentPackageID)
-			'Session.Output("!DEBUG! parentPackageName = "& parentPackage.Name)
+			'Session.Output("	      !DEBUG! new parentPackageName = "& parentPackage.Name)
 			
 			if (not parentPackage.IsModel) then 
 				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
 					parentPackageIsApplicationSchema = true
 					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
 					tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
-					
+					'Session.Output("	      !DEBUG! new parentPackage is not 'model' ") 
+					'Session.Output("	      !DEBUG! new parentPackageIsApplicationSchema")
 				end if
-				'check if parentPackage has dependency from the startpackage
+				'check if parentPackage has dependency from the start package
 				if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
 					tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
+					'Session.Output("	      !DEBUG!ADDED: package "& Repository.GetPackageByID(parentPackageID).name &" has dependeny from start package - added to tmpListPackageIDsOfReferencedPackagesFoundInHierarchy")
 				end if
 
 			end if
-			'Session.Output("!DEBUG! parentPackageID = "& parentPackageID & "   parentPackageIsApplicationSchema = "&parentPackageIsApplicationSchema &" parentPackageName: "&parentPackage.Name)
+			
 		loop
 		'Session.Output("!DEBUG! out of loop")
 		'add the temporal package ID to the global list
 		'the temporal package ID is either the package containing the external element
 		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
+		'Session.Output( "!DEBUG! tempPackageIDOfPotentialPackageToBeReferenced: "&Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).name)
 		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
 		
-		'Session.Output("!DEBUG! Added package id: for external element with id: "& externalReferencedElementID)
-		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "&externalReferencedElementID)
+		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "& externalReferencedElementID &" to globalListPackageIDsOfPackagesToBeReferenced")
 		
-		'Session.Output("!DEBUG! #tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
-		'Session.Output("!DEBUG! #tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
+		'Session.Output("!DEBUG! elements in tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
+		
+		'Session.Output("!DEBUG! elements in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
 		
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
-			Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
+			'Session.Output("ERROR: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
 			globalErrorCounter = globalErrorCounter + 1
 		end if
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
 			Session.Output("ERROR: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
 			globalErrorCounter = globalErrorCounter + 1
 		end if
+		'debug me! from here
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 0 then
 			'TODO does only check the first applicationSchema package found --> to be improved
 			dim packageIDOfFirstAppSchemaPackageFoundInHierarchy
@@ -2870,7 +2863,7 @@ sub findPackagesToBeReferenced()
 					Session.Output("       Exchange dependency related to package ["& Repository.GetPackageByID(packageIDOfReferencedPackage).Name &"] with dependency to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"]")
 					
 				next
-			elseif tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) then
+			elseif tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.contains(packageIDOfFirstAppSchemaPackageFoundInHierarchy) and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 1 then
 				Session.Output("ERROR: Found redundant dependency related to package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
 				Session.Output("       Please remove additional modelled dependency to the following package(s) in the same package hierarchy:")
 				globalErrorCounter = globalErrorCounter + 1
@@ -2959,10 +2952,10 @@ sub getElementIDsOfExternalReferencedElements(thePackage)
 				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
 					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
 					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
-				'else
+				else
 					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListClassifierIDsOfExternalReferencedElements") 
 				end if
-			'else
+			else
 				'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] already in list globalListAllClassifierIDsInApplicationSchema") 
 			end if
 		next	
