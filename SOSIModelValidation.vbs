@@ -2947,8 +2947,9 @@ sub getElementIDsOfExternalReferencedElements(thePackage)
 			dim currentConnector as EA.Connector
 			set currentConnector = listOfConnectors.GetAt(c)
 			'check if this element is on source side of connector - if not ignore (could be external connectors pointing to the element)
-			' and if id is in globalListAllClassifierIDsInApplicationSchema
-			if currentElement.ElementID = currentConnector.ClientID AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
+			' and if the id of the element on supplier side of the connector is in globalListAllClassifierIDsInApplicationSchema
+			'in addition, realizations will be ignored
+			if currentElement.ElementID = currentConnector.ClientID AND not currentConnector.Type = "Realisation" AND not globalListAllClassifierIDsInApplicationSchema.contains(currentConnector.SupplierID) then
 				if not globalListClassifierIDsOfExternalReferencedElements.contains(currentConnector.SupplierID) then
 					globalListClassifierIDsOfExternalReferencedElements.Add(currentConnector.SupplierID)
 					'Session.Output( "!DEBUG! ID [" & currentConnector.SupplierID & "] added to globalListClassifierIDsOfExternalReferencedElements") 
