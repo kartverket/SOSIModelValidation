@@ -2709,10 +2709,12 @@ sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
 	
 	'Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
 	for each diagram in diagramList
-		if diagram.Type="Package" then
+		'Note: It is possible to generate package diagrams in other diagram types (e.g. class diagarams)
+		'The check for diagram type is therefore disabled.
+		'if diagram.Type="Package" then
 			packageDiagramIDList.Add(diagram.DiagramID)
 			'Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
-		end if
+		'end if
 	next
 	for each subPackage in subPackageList
 		call getAllPackageDiagramIDs(subPackage, packageDiagramIDList)
