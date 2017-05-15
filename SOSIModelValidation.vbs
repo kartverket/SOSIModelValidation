@@ -10,9 +10,9 @@
 ' Script Name: SOSI model validation 
 ' Author: Section for technology and standardization - Norwegian Mapping Authority
 
-' Version: 1.1.2
+' Version: 1.2RC1
 
-' Date: 2017-02-02 
+' Date: 2017-02-02 - 2017-05-12/13 (Kent)
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
 '	/krav/3:  
@@ -85,7 +85,11 @@
 '			Checks that the stereotype for packages and elements got the right use of lower- and uppercase, if not, return an error. Stereotypes to be cheked:
 '			CodeList, dataType, enumeration, interface, Leaf, Union, FeatureType, ApplicationSchema
 '	/req/uml/profile      
-'			from iso 19109 -well known types for all attributes, including iso 19103 Requirement 22 and 25
+'			from iso 19109 -well known types for all attributes (GM_Surface etc.), builds on iso 19103 Requirement 22 and 25.
+'	/krav/25:      
+'			from iso 19103 -extended types for attributes (URI etc.), builds on iso 19103 Requirement 22.
+'	/krav/22:      
+'			from iso 19103 -core types for attributes (CharacterString etc.).
 '	/req/uml/feature
 '			featureType classes shall have unique names within the applicationSchema		
 '	/krav/taggedValueSpråk 	
@@ -144,7 +148,7 @@
 				mess = mess + ""&Chr(13)&Chr(10)
 				mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
+				box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2RC1")
 				select case box
 					case vbOK
 						'inputBoxGUI to receive user input regarding the log level
@@ -199,7 +203,11 @@
 							
 							call checkPackageDependency(thePackage)
 
-							
+							'For /req/Uml/Profile:
+							Set ProfileTypes = CreateObject("System.Collections.ArrayList")
+							Set ExtensionTypes = CreateObject("System.Collections.ArrayList")
+							Set CoreTypes = CreateObject("System.Collections.ArrayList")
+							reqUmlProfileLoad()
 							'For /krav/18:
 							set startPackage = thePackage
 							Set diaoList = CreateObject( "System.Collections.Sortedlist" )
@@ -1463,13 +1471,8 @@ end sub
 ' Date: 2016-08-04
 ' Purpose: 
     'test if element name is legal NCName
-    '/krav/6 - Navn på koder skal være mnemoniske (forståelige/huskbare), følge navnereglene for egenskapsnavn og være uten skilletegn og spesialtegn
-    'Visuell sjekk om navnene er gode/forståelige - etter beste mnemoniske vurdering
-    'Sjekk at navnet er NCName. 
-	'Skilletegn og spesialtegn som må unngås er: blank, komma, !, "", #, $, %, &, ', (, ), *, +, /, :, ;, <, =, >, ?, @, [, \, ], ^, `, {, |, }, ~
-	'((Tegnkoder under 32 (eksempelvis TAB) er ulovlige.))
-    'Et modellelementnavn kan ikke starte med tall, ""-"" eller ""."""
-	'Advarsel (Feil?) hvis kodens navn ikke er lowerCamelCase-NCName. 
+    'some characters to avoid are: blank, komma, !, "", #, $, %, &, ', (, ), *, +, /, :, ;, <, =, >, ?, @, [, \, ], ^, `, {, |, }, ~
+	'characters below 32 or names staring with a number are also illegal
 
 sub krav6mnemoniskKodenavn(theElement)
 	
@@ -1498,7 +1501,7 @@ sub krav6mnemoniskKodenavn(theElement)
 			end if
 			goodNames = false 
 		end if 
-		'check if any of the names are lowerCameCase
+		'check if name is not lowerCameCase
 		if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
 			numberOfWarnings = numberOfWarnings + 1
 			if globalLogLevelIsWarning then
@@ -1560,9 +1563,6 @@ End Function
 ' Purpose: 
  	' test if element has definition
 	'/krav/7
-  	'Alle koder er konsepter, og skal ha tilstrekkelig definisjon. Det vil si alle unntatt lister over kjente egennavn.
-  	'Visuell sjekk om navnene er egennavn, der dette ikke er tilfellet skal det finnes en definisjon
-  	'Se Krav 3, bør kun gi advarsel fordi vi ikke kan sjekke om det dreier seg om et egetnavn eller ikke
 
 sub krav7kodedefinisjon(theElement)
 	
@@ -1672,15 +1672,7 @@ end sub
 ' Author: Kent Jonsrud
 ' Date: 2016-08-05
 ' Purpose: 
-    '/krav/15
-    'Modeller av geografisk informasjon skal ved behov bruke en av de standardiserte stereotypene, og ikke lage egne alternative stereotyper med samme mening.
-    '(CodeList, dataType, enumeration, interface, Leaf, Union, FeatureType, ApplicationSchema) (Andre stereotyper med andre betydninger kan legges til.)
-    'visuell sjekk at det ikke legges en annen betydning i stereotypene som er nevnt i kravet og  dersom stereotypen ikke er kjent.
-    'Sjekk mot alle stereotyper som er nevnt i standarden og som er knyttet til et applikasjonsskjema.
-    'Advarselsmelding der det er stereotyper som ikke er en del av lista.
-    'NB - ta med<estimated>, beskrevet i ISO 19156 og SOSI Regler for UML modellering (testen skal være case-uavhengig)
-    'høy
-    'ta inn MessageType fra kap 9 i en senere versjon (2.0?)	Advarsel
+    '/krav/15 - warning if not a standardised stereotype
 
 sub krav15stereotyper(theElement)
 	dim goodNames, badName, badStereotype, roleName
@@ -1766,11 +1758,6 @@ end sub
 ' Date: 2016-08-09
 ' Purpose: 
     '/krav/16
-    'Alle navn på modellelementer skal være case-insensitivt unike innenfor sitt navnerom, og ikke inneholde blanke eller andre skilletegn.
-    'Merknad: navnerommet til roller og egenskaper er klassen.
-    'Sjekk at navnene til klasser (classifier: kodelister, enumerations, datatyper, objekttyper) og underpakker(!), er unike innenfor sitt navnerom (valgt pakke)
-    'Navn til roller, egenskaper og operasjoner skal være unike innenfor klassen.
-    'Notat: NCName, unike navn på klasse i underpakker, unike eg-/rolle-/oper-navn (forby polymorfisme på operasjoner?)
  
 sub krav16unikeNCnavn(theElement)
 	
@@ -1977,49 +1964,65 @@ end sub
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: reqUmlProfile
 ' Author: Kent Jonsrud
-' Date: 2016-08-08
+' Date: 2016-08-08, 2017-05-13
 ' Purpose: 
-    '/req/uml/profile     ~ bygger på /krav/22 og /krav/25
-    'Applikasjonsskjema skal modelleres ved bruk av UML-profilen definert i ISO19103:2015, og med tillegg beskrevet i dette kapittel. (Kapittel 11 i SOSI regler for UML-modellering 5.0)
+    'iso19109:2015 /req/uml/profile , includes iso109103:2015 requirement 25 and requirement 22.
 
 
 sub reqUmlProfile(theElement)
 	
 	dim attr as EA.Attribute
+	'navigate through all attributes 
+	for each attr in theElement.Attributes
+		if attr.ClassifierID = 0 then
+			'Attribute not connected to a datatype class, check if the attribute has a iso TC 211 well known type
+			if ProfileTypes.IndexOf(attr.Type,0) = -1 then	
+				if ExtensionTypes.IndexOf(attr.Type,0) = -1 then	
+					if CoreTypes.IndexOf(attr.Type,0) = -1 then	
+						Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"]. [/req/uml/profile] & requirement 25 & requirement 22")
+						globalErrorCounter = globalErrorCounter + 1 
+					end if
+				end if
+			end if
+		end if 
+	next
 
-	'List of well known core and extension type names defined in iso 19103:2015
-	dim ExtensionTypes
-	Set ExtensionTypes = CreateObject("System.Collections.ArrayList")
-	ExtensionTypes.Add "Date"
-	ExtensionTypes.Add "Time"
-	ExtensionTypes.Add "DateTime"
-	ExtensionTypes.Add "CharacterString"
-	ExtensionTypes.Add "Number"
-	ExtensionTypes.Add "Decimal"
-	ExtensionTypes.Add "Integer"
-	ExtensionTypes.Add "Real"
-	ExtensionTypes.Add "Boolean"
-	ExtensionTypes.Add "Vector"
+end sub
 
-	ExtensionTypes.Add "Bit"
-	ExtensionTypes.Add "Digit"
-	ExtensionTypes.Add "Sign"
 
-	ExtensionTypes.Add "NameSpace"
-	ExtensionTypes.Add "GenericName"
-	ExtensionTypes.Add "LocalName"
-	ExtensionTypes.Add "ScopedName"
-	ExtensionTypes.Add "TypeName"
-	ExtensionTypes.Add "MemberName"
-
-	ExtensionTypes.Add "Any"
-
-	ExtensionTypes.Add "Record"
-	ExtensionTypes.Add "RecordType"
-	ExtensionTypes.Add "Field"
-	ExtensionTypes.Add "FieldType"
+sub reqUmlProfileLoad()
 	
-	'iso 19103 Annex-C types
+	'iso 19103:2015 Core types
+	CoreTypes.Add "Date"
+	CoreTypes.Add "Time"
+	CoreTypes.Add "DateTime"
+	CoreTypes.Add "CharacterString"
+	CoreTypes.Add "Number"
+	CoreTypes.Add "Decimal"
+	CoreTypes.Add "Integer"
+	CoreTypes.Add "Real"
+	CoreTypes.Add "Boolean"
+	CoreTypes.Add "Vector"
+
+	CoreTypes.Add "Bit"
+	CoreTypes.Add "Digit"
+	CoreTypes.Add "Sign"
+
+	CoreTypes.Add "NameSpace"
+	CoreTypes.Add "GenericName"
+	CoreTypes.Add "LocalName"
+	CoreTypes.Add "ScopedName"
+	CoreTypes.Add "TypeName"
+	CoreTypes.Add "MemberName"
+
+	CoreTypes.Add "Any"
+
+	CoreTypes.Add "Record"
+	CoreTypes.Add "RecordType"
+	CoreTypes.Add "Field"
+	CoreTypes.Add "FieldType"
+	
+	'iso 19103:2015 Annex-C types
 	ExtensionTypes.Add "LanguageString"
 	
 	ExtensionTypes.Add "Anchor"
@@ -2061,102 +2064,92 @@ sub reqUmlProfile(theElement)
 	ExtensionTypes.Add "AngularAcceleration"
 	
 	'well known and often used spatial types from iso 19107:2003
-	ExtensionTypes.Add "DirectPosition"
-	ExtensionTypes.Add "GM_Object"
-	ExtensionTypes.Add "GM_Primitive"
-	ExtensionTypes.Add "GM_Complex"
-	ExtensionTypes.Add "GM_Aggregate"
-	ExtensionTypes.Add "GM_Point"
-	ExtensionTypes.Add "GM_Curve"
-	ExtensionTypes.Add "GM_Surface"
-	ExtensionTypes.Add "GM_Solid"
-	ExtensionTypes.Add "GM_MultiPoint"
-	ExtensionTypes.Add "GM_MultiCurve"
-	ExtensionTypes.Add "GM_MultiSurface"
-	ExtensionTypes.Add "GM_MultiSolid"
-	ExtensionTypes.Add "GM_CompositePoint"
-	ExtensionTypes.Add "GM_CompositeCurve"
-	ExtensionTypes.Add "GM_CompositeSurface"
-	ExtensionTypes.Add "GM_CompositeSolid"
-	ExtensionTypes.Add "TP_Object"
-	'ExtensionTypes.Add "TP_Primitive"
-	ExtensionTypes.Add "TP_Complex"
-	ExtensionTypes.Add "TP_Node"
-	ExtensionTypes.Add "TP_Edge"
-	ExtensionTypes.Add "TP_Face"
-	ExtensionTypes.Add "TP_Solid"
-	ExtensionTypes.Add "TP_DirectedNode"
-	ExtensionTypes.Add "TP_DirectedEdge"
-	ExtensionTypes.Add "TP_DirectedFace"
-	ExtensionTypes.Add "TP_DirectedSolid"
-	ExtensionTypes.Add "GM_OrientableCurve"
-	ExtensionTypes.Add "GM_OrientableSurface"
-	ExtensionTypes.Add "GM_PolyhedralSurface"
-	ExtensionTypes.Add "GM_triangulatedSurface"
-	ExtensionTypes.Add "GM_Tin"
+	ProfileTypes.Add "DirectPosition"
+	ProfileTypes.Add "GM_Object"
+	ProfileTypes.Add "GM_Primitive"
+	ProfileTypes.Add "GM_Complex"
+	ProfileTypes.Add "GM_Aggregate"
+	ProfileTypes.Add "GM_Point"
+	ProfileTypes.Add "GM_Curve"
+	ProfileTypes.Add "GM_Surface"
+	ProfileTypes.Add "GM_Solid"
+	ProfileTypes.Add "GM_MultiPoint"
+	ProfileTypes.Add "GM_MultiCurve"
+	ProfileTypes.Add "GM_MultiSurface"
+	ProfileTypes.Add "GM_MultiSolid"
+	ProfileTypes.Add "GM_CompositePoint"
+	ProfileTypes.Add "GM_CompositeCurve"
+	ProfileTypes.Add "GM_CompositeSurface"
+	ProfileTypes.Add "GM_CompositeSolid"
+	ProfileTypes.Add "TP_Object"
+	'ProfileTypes.Add "TP_Primitive"
+	ProfileTypes.Add "TP_Complex"
+	ProfileTypes.Add "TP_Node"
+	ProfileTypes.Add "TP_Edge"
+	ProfileTypes.Add "TP_Face"
+	ProfileTypes.Add "TP_Solid"
+	ProfileTypes.Add "TP_DirectedNode"
+	ProfileTypes.Add "TP_DirectedEdge"
+	ProfileTypes.Add "TP_DirectedFace"
+	ProfileTypes.Add "TP_DirectedSolid"
+	ProfileTypes.Add "GM_OrientableCurve"
+	ProfileTypes.Add "GM_OrientableSurface"
+	ProfileTypes.Add "GM_PolyhedralSurface"
+	ProfileTypes.Add "GM_triangulatedSurface"
+	ProfileTypes.Add "GM_Tin"
 
 	'well known and often used coverage types from iso 19123:2007
-	ExtensionTypes.Add "CV_Coverage"
-	ExtensionTypes.Add "CV_DiscreteCoverage"
-	ExtensionTypes.Add "CV_DiscretePointCoverage"
-	ExtensionTypes.Add "CV_DiscreteGridPointCoverage"
-	ExtensionTypes.Add "CV_DiscreteCurveCoverage"
-	ExtensionTypes.Add "CV_DiscreteSurfaceCoverage"
-	ExtensionTypes.Add "CV_DiscreteSolidCoverage"
-	ExtensionTypes.Add "CV_ContinousCoverage"
-	ExtensionTypes.Add "CV_ThiessenPolygonCoverage"
+	ProfileTypes.Add "CV_Coverage"
+	ProfileTypes.Add "CV_DiscreteCoverage"
+	ProfileTypes.Add "CV_DiscretePointCoverage"
+	ProfileTypes.Add "CV_DiscreteGridPointCoverage"
+	ProfileTypes.Add "CV_DiscreteCurveCoverage"
+	ProfileTypes.Add "CV_DiscreteSurfaceCoverage"
+	ProfileTypes.Add "CV_DiscreteSolidCoverage"
+	ProfileTypes.Add "CV_ContinousCoverage"
+	ProfileTypes.Add "CV_ThiessenPolygonCoverage"
 	'ExtensionTypes.Add "CV_ContinousQuadrilateralGridCoverageCoverage"
-	ExtensionTypes.Add "CV_ContinousQuadrilateralGridCoverage"
-	ExtensionTypes.Add "CV_HexagonalGridCoverage"
-	ExtensionTypes.Add "CV_TINCoverage"
-	ExtensionTypes.Add "CV_SegmentedCurveCoverage"
+	ProfileTypes.Add "CV_ContinousQuadrilateralGridCoverage"
+	ProfileTypes.Add "CV_HexagonalGridCoverage"
+	ProfileTypes.Add "CV_TINCoverage"
+	ProfileTypes.Add "CV_SegmentedCurveCoverage"
 
 	'well known and often used temporal types from iso 19108:2006/2002?
-	ExtensionTypes.Add "TM_Instant"
-	ExtensionTypes.Add "TM_Period"
-	ExtensionTypes.Add "TM_Node"
-	ExtensionTypes.Add "TM_Edge"
-	ExtensionTypes.Add "TM_TopologicalComplex"
+	ProfileTypes.Add "TM_Instant"
+	ProfileTypes.Add "TM_Period"
+	ProfileTypes.Add "TM_Node"
+	ProfileTypes.Add "TM_Edge"
+	ProfileTypes.Add "TM_TopologicalComplex"
 	
 	'well known and often used observation related types from OM_Observation in iso 19156:2011
-	ExtensionTypes.Add "TM_Object"
-	ExtensionTypes.Add "DQ_Element"
-	ExtensionTypes.Add "NamedValue"
+	ProfileTypes.Add "TM_Object"
+	ProfileTypes.Add "DQ_Element"
+	ProfileTypes.Add "NamedValue"
 	
 	'well known and often used quality element types from iso 19157:2013
-	ExtensionTypes.Add "DQ_AbsoluteExternalPositionalAccurracy"
-	ExtensionTypes.Add "DQ_RelativeInternalPositionalAccuracy"
-	ExtensionTypes.Add "DQ_AccuracyOfATimeMeasurement"
-	ExtensionTypes.Add "DQ_TemporalConsistency"
-	ExtensionTypes.Add "DQ_TemporalValidity"
-	ExtensionTypes.Add "DQ_ThematicClassificationCorrectness"
-	ExtensionTypes.Add "DQ_NonQuantitativeAttributeCorrectness"
-	ExtensionTypes.Add "DQ_QuanatitativeAttributeAccuracy"
+	ProfileTypes.Add "DQ_AbsoluteExternalPositionalAccurracy"
+	ProfileTypes.Add "DQ_RelativeInternalPositionalAccuracy"
+	ProfileTypes.Add "DQ_AccuracyOfATimeMeasurement"
+	ProfileTypes.Add "DQ_TemporalConsistency"
+	ProfileTypes.Add "DQ_TemporalValidity"
+	ProfileTypes.Add "DQ_ThematicClassificationCorrectness"
+	ProfileTypes.Add "DQ_NonQuantitativeAttributeCorrectness"
+	ProfileTypes.Add "DQ_QuanatitativeAttributeAccuracy"
 
 	'well known and often used metadata element types from iso 19115-1:200x and iso 19139:2x00x
-	ExtensionTypes.Add "PT_FreeText"
-	ExtensionTypes.Add "LocalisedCharacterString"
-	ExtensionTypes.Add "MD_Resolution"
-	'ExtensionTypes.Add "CI_Citation"
-	'ExtensionTypes.Add "CI_Date"
+	ProfileTypes.Add "PT_FreeText"
+	ProfileTypes.Add "LocalisedCharacterString"
+	ProfileTypes.Add "MD_Resolution"
+	'ProfileTypes.Add "CI_Citation"
+	'ProfileTypes.Add "CI_Date"
 
 	'other less known Norwegian geometry types
-	ExtensionTypes.Add "Punkt"
-	ExtensionTypes.Add "Kurve"
-	ExtensionTypes.Add "Flate"
-	ExtensionTypes.Add "Sverm"
+	ProfileTypes.Add "Punkt"
+	ProfileTypes.Add "Kurve"
+	ProfileTypes.Add "Flate"
+	ProfileTypes.Add "Sverm"
 
-	'navigate through all attributes 
-	for each attr in theElement.Attributes
-		'count number of attributes in one list
-		if attr.ClassifierID = 0 then
-			'check if the attribute has a well known core type
-			if ExtensionTypes.IndexOf(attr.Type,0) = -1 then	
-				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"]. [/req/uml/profile]")
-				globalErrorCounter = globalErrorCounter + 1 
-			end if
-		end if 
-	next
+
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -2164,7 +2157,7 @@ end sub
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: krav18-viseAlt
 ' Author: Kent Jonsrud
-' Date: 2016-08-09..30, 2016-09-05, 2017-01-17 (no more false positives)
+' Date: 2016-08-09..30, 2016-09-05, 2017-01-17, 2017-05-13
 ' Purpose: test whether a class is showing all its content in at least one class diagram.
     '/krav/18
 
@@ -2182,7 +2175,6 @@ sub krav18viseAlt(theElement)
 	dim viserAlt
 	viserAlt = false
 	
-	'navigate through all diagrams and find those the element knows
 	Dim i, shownTimes
 	shownTimes=0
 	For i = 0 To diaoList.Count - 1
@@ -2194,13 +2186,12 @@ sub krav18viseAlt(theElement)
 					exit for
 				end if
 			next
-
+			
 			if theElement.Attributes.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 then
 				if theElement.Methods.Count = 0 or InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 then
 					if InStr(1,diagram.ExtendedStyle,"HideEStereo=1") = 0 then
 						if InStr(1,diagram.ExtendedStyle,"UseAlias=1") = 0 or theElement.Alias = "" then
-							if (showAllProperties(theElement, diagram, diao)) then
-								'shows all OK in this diagram, how about inherited?
+							if (PropertiesShown(theElement, diagram, diao)) then
 								viserAlt = true
 							end if
 						end if
@@ -2221,14 +2212,89 @@ sub krav18viseAlt(theElement)
 	end if
 end sub
 
-function showAllProperties(theElement, diagram, diao)
-	showAllProperties = false
-	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diao.ShowPublicAttributes or InStr(1,diao.Style,"AttCustom=0" ) <> 0 or theElement.Attributes.Count = 0 then
-		if InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 and diao.ShowPublicOperations or InStr(1,diao.Style,"OpCustom=0" ) <> 0 or theElement.Methods.Count = 0 then
-			if InStr(1,diagram.ExtendedStyle,"ShowCons=0") = 0 or diao.ShowConstraints or InStr(1,diao.Style,"Constraint=1" ) <> 0 or theElement.Constraints.Count = 0 then
+
+
+function PropertiesShown(theElement, diagram, diagramObject)
+
+	dim conn as EA.Connector
+	dim super as EA.Element
+	dim diaos as EA.DiagramObject
+	dim SuperpropertiesShown, InheritanceHandled, supername
+	PropertiesShown = false
+	SuperpropertiesShown = true
+	InheritanceHandled = true
+	supername = ""
+
+	if InStr(1,diagram.ExtendedStyle,"HideAtts=1") = 0 and diagramObject.ShowPublicAttributes and InStr(1,diagramObject.Style,"AttCustom=1" ) = 0 or theElement.Attributes.Count = 0 then
+		'Diagram Properties are set to show Attributes, or no Attributes in the class
+		if InStr(1,diagram.ExtendedStyle,"HideOps=1") = 0 and diagramObject.ShowPublicOperations or InStr(1,diagramObject.Style,"OpCustom=0" ) <> 0 or theElement.Methods.Count = 0 then
+			'Diagram Properties are set to show Operations, or no Operations in the class
+			if InStr(1,diagram.ExtendedStyle,"ShowCons=0") = 0 or diagramObject.ShowConstraints or InStr(1,diagramObject.Style,"Constraint=1" ) <> 0 or theElement.Constraints.Count = 0 then
+				'Diagram Properties are set to show Constraints, or no Constraints in the class
 				' all attribute parts really shown? ...
 				if InStr(1,diagram.StyleEX,"VisibleAttributeDetail=1" ) = 0 or theElement.Attributes.Count = 0 then
-					showAllProperties = true
+					'Feaure Visibility is set to show all Attributes
+					if InStr(1,diagram.ExtendedStyle,"HideRel=0") = 1 or theElement.Connectors.Count = 0 then
+						'Diagram Properties set up to show all Associations, or no Associations in the class				
+						if AssociationsShown(theElement, diagram, diagramObject) then
+							'All Associations shown ok
+							'Must now recurce and check that all inherited elements are also shown in this diagram
+							'Any Supertype exist?
+								for each conn in theElement.Connectors
+									if conn.Type = "Generalization" then
+										if theElement.ElementID = conn.ClientID then 
+											InheritanceHandled = false
+											supername = Repository.GetElementByID(conn.SupplierID).Name
+										end if
+										for each diaos in diagram.DiagramObjects
+											Set super = Repository.GetElementByID(diaos.ElementID)
+											if super.ElementID <> theElement.ElementID and super.ElementID = conn.SupplierID then
+												' Supertype found, recurce into it
+												if (PropertiesShown(super, diagram, diaos) ) then
+													'This Supertype is shown ok
+												else
+													SuperpropertiesShown = false
+												end if
+												InheritanceHandled = true
+												'exit for? or is it posible to test multiple inheritance sicessfully?
+											else
+												' Class has subtype, it is not tested
+											end if
+										next
+										if not InheritanceHandled then
+											'Supertype may not be in this diagram at all
+											SuperpropertiesShown = false
+										end if
+									else
+									end if
+								next
+							'else
+								'no supertypes
+							'end if
+							'are all inherited attributes shown in the class? and no inherited associations?
+							if SuperpropertiesShown then PropertiesShown = true
+						else
+							'Session.Output("Info: Diagram ["&diagram.Name&"] not able to show all associations for class ["&theElement.Name&"]")				
+						end if
+					else
+						'Session.Output("Info: Diagram ["&diagram.Name&"] Diagram Properties not set up to show any associations for class ["&theElement.Name&"]")				
+					end if
+
+					' All model elements are checked to be shown in the diagram.
+					' But are there any other classes in the same diagram who are blocking full view of this element?
+					'if ElementBlocked(theElement, diagram, dial) then
+						'PropertiesShown = false
+					'end if
+
+
+					if PropertiesShown then
+						'Session.Output("Info: Diagram ["&diagram.Name&"] OK, shows all attributes and operations in class ["&theElement.Name&"]")				
+					end if
+					
+					' else
+						'Session.Output("Info 5 Diagram ["&diagram.Name&"] Roles.....=0 and diagramObject.ShowConstraints=false or InStr(1,diagramObject.Style,'Constraint=1' ) <> 0 or theElement.Constraints.Count > 0.  ")
+						'PropertiesShown = false
+					' end if
 				end if
 			end if
 		end if
@@ -2236,6 +2302,87 @@ function showAllProperties(theElement, diagram, diao)
 end function
 
 
+function AssociationsShown(theElement, diagram, diagramObject)
+	dim i, roleEndElementID, roleEndElementShown, GeneralizationsFound
+	dim dial as EA.DiagramLink
+	dim connEl as EA.Connector
+	dim conn as EA.Connector
+	dim diaoRole as EA.DiagramObject
+	AssociationsShown = false
+	GeneralizationsFound = 0
+	
+	for each connEl in theElement.Connectors
+		'test only for Association, Aggregation (+Composition) - leave out Generalization and Realization and the rest
+		if connEl.Type = "Generalization" or connEl.Type = "Realization" then
+			GeneralizationsFound = GeneralizationsFound + 1
+		else
+			for each dial in diagram.DiagramLinks
+				Set conn = Repository.GetConnectorByID(dial.ConnectorID)
+				if connEl.ConnectorID = conn.ConnectorID then
+				'connector has diagramlink so it is shown in this diagram!
+				
+					'is the class at the other connector end actually shown in this diagram?
+				'	roleEndElementShown = false
+				'	if conn.ClientID = theElement.ElementID then
+				'		roleEndElementID = conn.SupplierID
+				'	else
+				'		roleEndElementID = conn.ClientID
+				'	end if
+				'	for each diaoRole in diagram.DiagramObjects
+				'		if diaoRole.ElementID = roleEndElementID then
+				'				roleEndElementShown = true
+				'			exit for
+				'		end if
+				'	next
+				'		
+						
+						'this role property points to class at supplier end
+				'		Session.Output("Debug: looking for element [" & conn.SupplierID & "] at supplier end")
+				'		For i = 0 To diaoList.Count - 1
+				'			if conn.SupplierID = diaoList.GetByIndex(i) then
+				'				'shown at all?
+				'				
+				'				exit for
+				'			end if
+				'		next
+	 
+					'Session.Output("Debug: connector is shown in this diagram - ok ")
+					AssociationsShown = true
+				else
+					'Session.Output("Debug: connector is not shown in this diagram ")
+				end if
+
+				'are the connector end elements (role name and multiplicity shown ok?
+		'		if conn.ClientID = theElement.ElementID then
+		'			if 
+		'				AssociationsShown = true
+		'				exit for
+		'			end if
+		'		end if
+		'		if conn.SupplierID = theElement.ElementID then
+		'			if 
+		'				AssociationsShown = true
+		'				exit for
+		'			end if
+		'		end if
+		
+			next
+		end if
+	next
+
+	'are there any other connector end elements too close?
+
+	if GeneralizationsFound > 0 and not AssociationsShown then
+		if theElement.Connectors.Count = GeneralizationsFound then
+			AssociationsShown = true
+		end if
+	else
+		if theElement.Connectors.Count = 0 then
+			AssociationsShown = true
+		end if
+	end if
+
+end function
 
 
 'Recursive loop through subpackages, creating a list of all model elements and their corresponding diagrams
@@ -2245,10 +2392,10 @@ sub recListDiagramObjects(p)
 	dim Dobj as EA.DiagramObject
 	for each d In p.diagrams
 		for each Dobj in d.DiagramObjects
-			If not diaoList.ContainsKey(Dobj.ElementID) Then
+
 				diaoList.Add Dobj.InstanceID, Dobj.ElementID
 				diagList.Add Dobj.InstanceID, Dobj.DiagramID
-			end if   
+   
 		next	
 	next
 		
@@ -3438,6 +3585,13 @@ Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
 dim startPackage as EA.Package
 dim diaoList
 dim diagList
+
+'List of well known type names defined in iso 19109:2015
+dim ProfileTypes
+'List of well known extension type names defined in iso 19103:2015
+dim ExtensionTypes
+'List of well known core type names defined in iso 19103:2015
+dim CoreTypes
 
 'two global variables for checking uniqueness of FeatureType names - shall be updated in sync 
 dim FeatureTypeNames 
