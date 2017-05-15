@@ -136,7 +136,7 @@
 					mess = mess + ""&Chr(13)&Chr(10)
 					mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.1")
+					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2")
 					select case box
 						case vbOK
 							'inputBoxGUI to receive user input regarding the log level
@@ -176,7 +176,8 @@
 							
 
 							if not abort then
-				
+								'give an initial feedback in system output 
+								Session.Output("SOSI model validation 1.2 started. "&Now())
 								'Check model for script breaking structures
 								if scriptBreakingStructuresInModel(thePackage) then
 									Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
@@ -232,12 +233,13 @@
 									globalErrorCounter = globalErrorCounter + 1 
 			
 								end if 
-	
-								Session.Output("Number of errors found: " & globalErrorCounter) 
+								'final report
+								Session.Output("-----Report for package ["&startPackageName&"]-----") 		
+								Session.Output("   Number of errors found: " & globalErrorCounter) 
 								if globalLogLevelIsWarning then
-									Session.Output("Number of warnings found: " & globalWarningCounter)
+									Session.Output("   Number of warnings found: " & globalWarningCounter)
 								end if	
-								Session.Output("Run time: " &Elapsed& " seconds" )
+								Session.Output("   Run time: " &Elapsed& " seconds" )
 							end if	
 						case VBcancel
 							'nothing to do						
