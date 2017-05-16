@@ -8,12 +8,12 @@
 ' directory of your EA install path.    
 ' 
 ' Script Name: SOSI model validation 
-' Author: Section for technology and standardization - Norwegian Mapping Authority
+' Author: Section for standardization and technology development - Norwegian Mapping Authority
 
 
-' Version: 1.1.3tc2
+' Version: 1.2
 
-' Date: 2017-05-15 
+' Date: 2017-05-16 
 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -38,8 +38,8 @@
 '  	/krav/16:
 '			Iso 19103 Requirement 16 - legal NCNames case-insesnitively unique within their namespace
 '  	/krav/18:
-'			Iso 19103 Requirement 18 - all elements shall show all structures in at least one diagram
-'			Current version test all classes and their attributes in diagrams, not yet roles and inheritance.
+'			Iso 19103 Requirement 18 - checks that all elements show all structures in at least one diagram
+'			Tests all classes and their attributes in diagrams including roles and inheritance.
 '	/krav/19:
 '			Iso 19103 Requirement 19 - all classes shall have a definition describing its intended meaning or semantics.
 '	/krav/definisjoner: 
@@ -79,7 +79,7 @@
 '  	/req/uml/packaging:
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
 '	/req/uml/structure
-'			Check that all abstract classes in application schema has at least one subclass within the same schema.  Check that no classes in application schema has stereotype interface
+'			Check that all abstract classes in application schema has at least one instantiable subclass within the same schema.  Check that no classes in application schema has stereotype interface
 '   /anbefaling/1:
 '			Checks every initial values in codeLists and enumerations for a package. If one or more initial values are numeric in one list, 
 ' 			it return a warning message. 
@@ -87,17 +87,25 @@
 '			Checks that the stereotype for packages and elements got the right use of lower- and uppercase, if not, return an error. Stereotypes to be cheked:
 '			CodeList, dataType, enumeration, interface, Leaf, Union, FeatureType, ApplicationSchema
 '	/req/uml/profile      
-'			from iso 19109 -well known types for all attributes (GM_Surface etc.), builds on iso 19103 Requirement 22 and 25.
+'			from iso 19109 - check for valid well known types for all attributes (GM_Surface etc.), builds on iso 19103 Requirement 22 and 25.
 '	/krav/25:      
-'			from iso 19103 -extended types for attributes (URI etc.), builds on iso 19103 Requirement 22.
+'			from iso 19103 - check for valid extended types for attributes (URI etc.), builds on iso 19103 Requirement 22.
 '	/krav/22:      
-'			from iso 19103 -core types for attributes (CharacterString etc.).
+'			from iso 19103 - check for valid core types for attributes (CharacterString etc.).
 '	/req/uml/feature
 '			featureType classes shall have unique names within the applicationSchema		
 '	/krav/taggedValueSpråk 	
 '			Check that ApplicationSchema packages shall have a language tag. Also check that ApplicationSchema have designation and definition tags in English (i.e. tag value ending with @en)
 '	/req/general/feature
-' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. Check that FeatureTypes within a ApplicationSchema have unique names.
+' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. 
+'			Not implemented: Check that FeatureTypes within a ApplicationSchema have unique names.
+'	/req/uml/integration
+'			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below start package for this script.
+'			Not implemented yet: Check of package hierarchy of external referenced packages for more than one applicationSchema. Check of package hierachy above start package for more applicationSchemas.
+'	/krav/17
+'			Check that package dependencies are shown in at least one package diagram. 
+'	/krav/21
+'			Check that existing package diagrams show all existing package dependencies.
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Project Browser Script main function 
  
@@ -1970,7 +1978,7 @@ sub reqUmlProfile(theElement)
 			if ProfileTypes.IndexOf(attr.Type,0) = -1 then	
 				if ExtensionTypes.IndexOf(attr.Type,0) = -1 then	
 					if CoreTypes.IndexOf(attr.Type,0) = -1 then	
-						Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"]. [/req/uml/profile] & requirement 25 & requirement 22")
+						Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown type for attribute ["&attr.Name&" : "&attr.Type&"]. [/req/uml/profile] & krav/25 & krav/22")
 						globalErrorCounter = globalErrorCounter + 1 
 					end if
 				end if
@@ -2328,7 +2336,7 @@ function AssociationsShown(theElement, diagram, diagramObject)
 				'		
 						
 						'this role property points to class at supplier end
-				'		Session.Output("Debug: looking for element [" & conn.SupplierID & "] at supplier end")
+				'		
 				'		For i = 0 To diaoList.Count - 1
 				'			if conn.SupplierID = diaoList.GetByIndex(i) then
 				'				'shown at all?
@@ -2337,7 +2345,6 @@ function AssociationsShown(theElement, diagram, diagramObject)
 				'			end if
 				'		next
 	 
-					'Session.Output("Debug: connector is shown in this diagram - ok ")
 					AssociationsShown = true
 				else
 					'Session.Output("Debug: connector is not shown in this diagram ")
@@ -2813,7 +2820,6 @@ sub findPackageDependencies(thePackageElement)
 			if thePackageElement.ElementID = packageConnector.ClientID then
 				set dependee = Repository.GetElementByID(packageConnector.SupplierID)
 				globalListPackageElementIDsOfPackageDependencies.Add(dependee.ElementID)
-				'Session.Output("!DEBUG! dependee.Name: "&dependee.Name)
 				'call findPackageDependencies(dependee)
 			end if
 		end if
@@ -2840,7 +2846,6 @@ sub findPackageDependenciesShownRecursive(diagram, investigatedPackageElementID,
 				set supplier = Repository.GetElementByID(modelLink.SupplierID)
 				set client = Repository.GetElementByID(modelLink.ClientID)
 				dependencyList.Add(modelLink.SupplierID)
-				'Session.Output("!DEBUG!  Added package " & supplier.Name & " with ID " & modelLink.SupplierID & " to list of shown dependee packages")
 				'call findPackageDependenciesShownRecursive(diagram, modelLink.SupplierID, dependencyList)
 				if diagramLink.IsHidden and globalLogLevelIsWarning then
 					Session.Output("Warning: Diagram [" & diagram.Name &"] contains hidden dependency link between elements " & supplier.Name & " and " & client.Name & ".")
@@ -2860,13 +2865,12 @@ sub getAllPackageDiagramIDs(thePackage, packageDiagramIDList)
 	dim diagram
 	dim subPackage
 	
-	'Session.Output("!DEBUG! Looking for package diagrams in package " & thePackage.Name & ".")
 	for each diagram in diagramList
 		'Note: It is possible to generate package diagrams in other diagram types (e.g. class diagarams)
 		'The check for diagram type is therefore disabled.
 		'if diagram.Type="Package" then
 			packageDiagramIDList.Add(diagram.DiagramID)
-			'Session.Output("!DEBUG! Added diagram " & diagram.Name & " with ID " & diagram.DiagramID & " to packageDiagramIDList.")
+			
 		'end if
 	next
 	for each subPackage in subPackageList
@@ -2906,18 +2910,16 @@ end sub
 
 sub findPackagesToBeReferenced()
 	dim externalReferencedElementID
-	'Session.Output("!DEBUG! elements in globalListClassifierIDsOfExternalReferencedElements: "& globalListClassifierIDsOfExternalReferencedElements.count)
+	
 	dim debugcount
 	debugcount=0
 	dim currentExternalElement as EA.Element
 	dim arrayCounter
-	'Session.Output("!DEBUG! Elements in list: "& globalListClassifierIDsOfExternalReferencedElements.count)
+	
 	for each externalReferencedElementID in globalListClassifierIDsOfExternalReferencedElements
 		debugcount = debugcount + 1
-		'Session.Output("!DEBUG! Iteration of for: "& debugcount)
-		'Session.Output("!DEBUG! externalReferencedElementID: "& externalReferencedElementID)
 		set currentExternalElement = Repository.GetElementByID(externalReferencedElementID)
-		'Session.Output("!DEBUG! currentExternalElement: "& currentExternalElement.Name)
+		
 		dim parentPackageID
 		parentPackageID = currentExternalElement.PackageID 'here the parentPackageID is the ID of the package containing the external element
 		
@@ -2934,22 +2936,19 @@ sub findPackagesToBeReferenced()
 		dim parentPackage as EA.Package
 		if (not parentPackageID = 0) then 'meaning that there is a package
 			set parentPackage = Repository.GetPackageByID(parentPackageID)
-			'Session.Output("	      !DEBUG! parentPackage: "& parentPackage.Name)
 			'check if parentPackage is package and not model
 			if (not parentPackage.IsModel) then
-				'Session.Output("	      !DEBUG! parentPackage is not 'model'")
 				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
 					parentPackageIsApplicationSchema = true
 					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
-					'Session.Output("	      !DEBUG! parentPackageIsApplicationSchema")
-					'Session.Output("	      !DEBUG! parentPackageID added to tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy") 
+					
 				end if
 			end if	
 			
 			'check if parentPackage has dependency from the startpackage
 			if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
 				tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
-				'Session.Output("	      !DEBUG!ADDED: package "& Repository.GetPackageByID(parentPackageID).name &" has dependency from start package - added to tmpListPackageIDsOfReferencedPackagesFoundInHierarchy")
+				
 			end if
 			
 		end if
@@ -2962,39 +2961,31 @@ sub findPackagesToBeReferenced()
 		'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0) or finding a package with stereotype applicationSchema
 		do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
 			parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
-			'Session.Output("	      !DEBUG! parentPackageID = "& parentPackageID)
 			set parentPackage = Repository.GetPackageByID(parentPackageID)
-			'Session.Output("	      !DEBUG! new parentPackageName = "& parentPackage.Name)
-			
+						
 			if (not parentPackage.IsModel) then 
 				if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
 					parentPackageIsApplicationSchema = true
 					tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.Add(parentPackageID)
 					tempPackageIDOfPotentialPackageToBeReferenced = parentPackageID
-					'Session.Output("	      !DEBUG! new parentPackage is not 'model' ") 
-					'Session.Output("	      !DEBUG! new parentPackageIsApplicationSchema")
+					
 				end if
 				'check if parentPackage has dependency from the start package
 				if globalListPackageElementIDsOfPackageDependencies.contains(parentPackage.Element.ElementID) then
 					tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.add(parentPackageID)
-					'Session.Output("	      !DEBUG!ADDED: package "& Repository.GetPackageByID(parentPackageID).name &" has dependeny from start package - added to tmpListPackageIDsOfReferencedPackagesFoundInHierarchy")
+					
 				end if
 
 			end if
 			
 		loop
-		'Session.Output("!DEBUG! out of loop")
+	
 		'add the temporal package ID to the global list
 		'the temporal package ID is either the package containing the external element
 		'or the first package found upwards in the package hierarchy with stereotype applicationSchema
-		'Session.Output( "!DEBUG! tempPackageIDOfPotentialPackageToBeReferenced: "&Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).name)
+		
 		globalListPackageIDsOfPackagesToBeReferenced.add(tempPackageIDOfPotentialPackageToBeReferenced)
 		
-		'Session.Output( "!DEBUG! Added package id: "&tempPackageIDOfPotentialPackageToBeReferenced&" for external element with id: "& externalReferencedElementID &" to globalListPackageIDsOfPackagesToBeReferenced")
-		
-		'Session.Output("!DEBUG! elements in tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy: "& tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count)
-		
-		'Session.Output("!DEBUG! elements in tmpListPackageIDsOfReferencedPackagesFoundInHierarchy: "& tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count)
 		
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count = 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count = 0 then
 			Session.Output("Error: Missing dependency for package ["& Repository.GetPackageByID(tempPackageIDOfPotentialPackageToBeReferenced).Name &"] (or any of its superpackages) containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
@@ -3004,7 +2995,7 @@ sub findPackagesToBeReferenced()
 			Session.Output("Error: Missing dependency for package [<<applicationSchema>> "& Repository.GetPackageByID(tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy(0)).Name &"] containing external referenced class [" &currentExternalElement.Name& "] [/req/uml/integration]")
 			globalErrorCounter = globalErrorCounter + 1
 		end if
-		'debug me! from here
+		
 		if tmpListPackageIDsOfAppSchemaPackagesFoundInHierarchy.count > 0 and tmpListPackageIDsOfReferencedPackagesFoundInHierarchy.count > 0 then
 			'TODO does only check the first applicationSchema package found --> to be improved
 			dim packageIDOfFirstAppSchemaPackageFoundInHierarchy
@@ -3316,12 +3307,12 @@ sub FindInvalidElementsInPackage(package)
 			end if
 
 			'Iso 19103 Requirement 7 - definition of codelist codes.
-			if (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION") then
+			if (UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION" or currentElement.Type = "Enumeration") then
 				call krav7kodedefinisjon(currentElement)
 			end if
 	
 			'Iso 19103 Requirement 15 - known stereotypes for classes.
-			if UCase(currentElement.Stereotype) = "FEATURETYPE"  Or UCase(currentElement.Stereotype) = "DATATYPE" Or UCase(currentElement.Stereotype) = "UNION" or UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION" Or UCase(currentElement.Stereotype) = "ESTIMATED" or UCase(currentElement.Stereotype) = "MESSAGETYPE"  Or UCase(currentElement.Stereotype) = "INTERFACE" then
+			if UCase(currentElement.Stereotype) = "FEATURETYPE"  Or UCase(currentElement.Stereotype) = "DATATYPE" Or UCase(currentElement.Stereotype) = "UNION" or UCase(currentElement.Stereotype) = "CODELIST"  Or UCase(currentElement.Stereotype) = "ENUMERATION" Or UCase(currentElement.Stereotype) = "ESTIMATED" or UCase(currentElement.Stereotype) = "MESSAGETYPE"  Or UCase(currentElement.Stereotype) = "INTERFACE" Or currentElement.Type = "Enumeration" then
 			else
 				if globalLogLevelIsWarning then
 					Session.Output("Warning: Class [«" &currentElement.Stereotype& "» " &currentElement.Name& "] has unknown stereotype. [/krav/15]")
