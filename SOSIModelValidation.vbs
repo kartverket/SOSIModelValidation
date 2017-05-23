@@ -11,9 +11,9 @@
 ' Author: Section for standardization and technology development - Norwegian Mapping Authority
 
 
-' Version: 1.2
+' Version: 1.2.1
 
-' Date: 2017-05-16 
+' Date: 2017-05-23 
 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
