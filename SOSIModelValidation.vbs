@@ -1650,21 +1650,21 @@ end sub
 ' Purpose: Checks that no classes with stereotype <<FeatureType>> inherits from a class named GM_Object or TM_Object.
 ' @param[in]: currentElement, startClass
 
-sub reqGeneralFeature(currentElement, startClass)
+sub reqGeneralFeature(currentElement, reqGeneralFeatureStartClass)
 	
-	dim superClass as EA.Element
+	dim reqGeneralFeatureSuperClass as EA.Element
 	dim connector as EA.Connector
 
 	for each connector in currentElement.Connectors
 		if connector.Type = "Generalization" then
 			if UCASE(currentElement.Stereotype) = "FEATURETYPE" then
 				if currentElement.ElementID = connector.ClientID then
-					set superClass = Repository.GetElementByID(connector.SupplierID)
+					set reqGeneralFeatureSuperClass = Repository.GetElementByID(connector.SupplierID)
 
-					if UCASE(superClass.Name) = "GM_OBJECT" or UCASE(superClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(superClass.Stereotype) = "FEATURETYPE" then
-					session.output("Error: Class [" & startClass.Name & "] inherits from class [" & superclass.name & "] [req/general/feature]")
+					if UCASE(reqGeneralFeatureSuperClass.Name) = "GM_OBJECT" or UCASE(reqGeneralFeatureSuperClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(reqGeneralFeatureSuperClass.Stereotype) = "FEATURETYPE" then
+					session.output("Error: Class [" & reqGeneralFeatureStartClass.Name & "] inherits from class named [" & reqGeneralFeatureSuperClass.name & "]. [req/general/feature]")
 					globalErrorCounter = globalErrorCounter + 1
-					else call reqGeneralFeature(superClass, startClass)
+					else call reqGeneralFeature(reqGeneralFeatureSuperClass, reqGeneralFeatureStartClass)
 					end if
 				end if
 			end if
