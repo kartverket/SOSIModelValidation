@@ -859,7 +859,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 			next
 			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
 				if not valueExists then
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a " &taggedValueName& " tag [/krav/taggedValueSpråk]")
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a [" &taggedValueName& "] tag [/krav/taggedValueSpråk]")
 					globalErrorCounter = globalErrorCounter + 1
 				else
 					if not enDesignation then
