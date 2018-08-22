@@ -1713,7 +1713,7 @@ sub krav15stereotyper(theElement)
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
 			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15]")
-			globalWarningCounter = globalWarningCounter + 1
+			'globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
 
