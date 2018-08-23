@@ -1694,7 +1694,8 @@ sub krav15stereotyper(theElement)
 	'navigate through all attributes  
 	for each attr in theElement.Attributes
 		numberInList = numberInList + 1 
-		if attr.Stereotype <> "" then
+		if attr.Stereotype <> "" and LCase(attr.Stereotype) <> "estimated" and LCase(attr.Stereotype) <> "propertytype" then
+'INSPIRE	if attr.Stereotype <> "" and LCase(attr.Stereotype) <> "estimated" and LCase(attr.Stereotype) <> "propertytype" and LCase(attr.Stereotype) <> "voidable" and LCase(attr.Stereotype) <> "lifecycleinfo" then
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
 				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has unknown stereotype. «" & attr.Stereotype & "» on attribute ["&attr.Name&"]. [/krav/15]")
@@ -1712,7 +1713,7 @@ sub krav15stereotyper(theElement)
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
 			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15]")
-			globalWarningCounter = globalWarningCounter + 1
+			'globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
 
@@ -1732,7 +1733,8 @@ sub krav15stereotyper(theElement)
 		end if
 		'(ignoring all association roles without name!)
 		if roleName <> "" then
-			if badStereotype <> "" and LCase(badStereotype) <> "estimated" then
+			if badStereotype <> "" and LCase(badStereotype) <> "estimated" and LCase(badStereotype) <> "propertytype" then
+'INSPIRE		if badStereotype <> "" and LCase(badStereotype) <> "estimated" and LCase(badStereotype) <> "propertytype" and LCase(badStereotype) <> "voidable" then
 				if globalLogLevelIsWarning then
 					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] as unknown stereotype «"&badStereotype&"» on role name ["&roleName&"]. [/krav/15]")				
 					globalWarningCounter = globalWarningCounter + 1 
