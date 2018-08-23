@@ -1760,11 +1760,39 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
+' Sub Name: checkSubPackagesUniqueNames
+' Author: Kent Jonsrud
+' Date: 2018-08-23
+' Purpose: 
+    '/krav/16 on subpackage names
+ 
+sub checkSubPackagesUniqueNames(package)
+
+	PackageNames.Clear
+	dim packages as EA.Collection 
+	set packages = package.Packages 'collection of packages that belong to this package	
+	'Navigate the package collection and compare names
+	dim p 
+	for p = 0 to packages.Count - 1 
+		dim currentPackage as EA.Package 
+		set currentPackage = packages.GetAt( p ) 
+		if PackageNames.IndexOf(UCase(currentPackage.Name),0) <> -1 then
+			Session.Output("Error: Package [" &package.Name& "] has non-unique subpackage names ["&currentPackage.Name&"]. [/krav/16]")				
+			globalErrorCounter = globalErrorCounter + 1 
+		else	
+			PackageNames.Add UCase(currentPackage.Name)
+		end if
+	next 
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
+
+' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: krav16-unikeNCnavn
 ' Author: Kent Jonsrud
 ' Date: 2016-08-09
 ' Purpose: 
-    '/krav/16
+    '/krav/16 on role names and attribute names
  
 sub krav16unikeNCnavn(theElement)
 	
@@ -1787,53 +1815,12 @@ sub krav16unikeNCnavn(theElement)
 	dim inheritanceElementList
 	set inheritanceElementList = CreateObject("System.Collections.ArrayList")
 
-	'Association role names
-	for each conn in theElement.Connectors
-		roleName = ""
-		if theElement.ElementID = conn.ClientID then
-			roleName = conn.SupplierEnd.Role
-		end if
-		if theElement.ElementID = conn.SupplierID then
-			roleName = conn.ClientEnd.Role
-		end if
-		'(ignoring all association roles without name!)
-		if roleName <> "" then
-			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
-				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique role name ["&roleName&"]. [/krav/16]")				
- 				globalErrorCounter = globalErrorCounter + 1 
-			else
-				PropertyNames.Add UCase(roleName)
-			end if
-			if NOT IsNCName(roleName) then
-				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName. [/krav/16]")				
- 				globalErrorCounter = globalErrorCounter + 1 
-			end if
-		end if
-	next
-	
-	'Operation names
-	for each oper in theElement.Methods
-		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
-			globalErrorCounter = globalErrorCounter + 1 
-		else
-			PropertyNames.Add UCase(oper.Name)
-		end if
-		'check if the name is NCName
-		if NOT IsNCName(oper.Name) then
-				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName. [/krav/16]")				
- 				globalErrorCounter = globalErrorCounter + 1 
-		end if 
-	next
-	
-	'Constraint names TODO
-	
 	'navigate through all attributes 
 	for each attr in theElement.Attributes
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique attribute property name ["&attr.Name&"]. [/krav/16]")				
+			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique (attribute) property names ["&attr.Name&"]. [/krav/16]")				
 			globalErrorCounter = globalErrorCounter + 1 
 		else
 			PropertyNames.Add UCase(attr.Name)
@@ -1849,6 +1836,48 @@ sub krav16unikeNCnavn(theElement)
 		end if 
 	next
 
+
+	'Association role names
+	for each conn in theElement.Connectors
+		roleName = ""
+		if theElement.ElementID = conn.ClientID then
+			roleName = conn.SupplierEnd.Role
+		end if
+		if theElement.ElementID = conn.SupplierID then
+			roleName = conn.ClientEnd.Role
+		end if
+		'(ignoring all association roles without name!)
+		if roleName <> "" then
+			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique (role) property names ["&roleName&"]. [/krav/16]")				
+ 				globalErrorCounter = globalErrorCounter + 1 
+			else
+				PropertyNames.Add UCase(roleName)
+			end if
+			if NOT IsNCName(roleName) then
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal role name, ["&roleName&"] is not a NCName. [/krav/16]")				
+ 				globalErrorCounter = globalErrorCounter + 1 
+			end if
+		end if
+	next
+	
+	'Operation names
+	for each oper in theElement.Methods
+		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
+			Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has non-unique (operation) property names ["&oper.Name&"]. [/krav/16]")				
+			globalErrorCounter = globalErrorCounter + 1 
+		else
+			PropertyNames.Add UCase(oper.Name)
+		end if
+		'check if the name is NCName
+		if NOT IsNCName(oper.Name) then
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal operation name, ["&oper.Name&"] is not a NCName. [/krav/16]")				
+ 				globalErrorCounter = globalErrorCounter + 1 
+		end if 
+	next
+	
+	'Constraint names TODO
+	
 	'Other attributes and roles inherited from outside package
 	'Traverse and test against inherited names but do not add the inherited names to the list(!)
 	for each conn in theElement.Connectors
@@ -1869,7 +1898,7 @@ sub krav16unikeNCnavn(theElement)
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(super, PropertyNames, inheritanceElementList)
+				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(theElement, super, PropertyNames, inheritanceElementList)
 			end if
 		end if
 	next
@@ -1878,7 +1907,7 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
+sub krav16unikeNCnavnArvede(baseElement, theElement, PropertyNames, inheritanceElementList)
 	dim goodNames, lowerCameCase, badName, roleName
 	goodNames = true
 	lowerCameCase = true
@@ -1911,7 +1940,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 		if roleName <> "" then
 			if PropertyNames.IndexOf(UCase(roleName),0) <> -1 then
 				if globalLogLevelIsWarning then
-					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from. [/krav/16]")				
+					Session.Output("Warning: Class [«" &baseElement.Stereotype& "» " &baseElement.Name& "] in package: ["&Repository.GetPackageByID(baseElement.PackageID).Name&"] has non-unique inherited role property name ["&roleName&"] implicitly redefined from class ["&theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"]. [/krav/16]")				
 					globalWarningCounter = globalWarningCounter + 1
 				end if	
 			end if
@@ -1922,7 +1951,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 	for each oper in theElement.Methods
 		if PropertyNames.IndexOf(UCase(oper.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"]. [/krav/16]")				
+				Session.Output("Warning: Class [«" &baseElement.Stereotype& "» " &baseElement.Name& "] in package: ["&Repository.GetPackageByID(baseElement.PackageID).Name&"] has inherited and implicitly redefined non-unique operation property name ["&oper.Name&"] implicitly redefined from class ["&theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
@@ -1936,7 +1965,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 		numberInList = numberInList + 1 
 		if PropertyNames.IndexOf(UCase(attr.Name),0) <> -1 then
 			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name["&attr.Name&"]. [/krav/16]")				
+				Session.Output("Warning: Class [«" &baseElement.Stereotype& "» " &baseElement.Name& "] in package: ["&Repository.GetPackageByID(baseElement.PackageID).Name&"] has non-unique inherited and implicitly redefined attribute property name ["&attr.Name&"] implicitly redefined from class ["&theElement.Name& "] in package: ["&Repository.GetPackageByID(theElement.PackageID).Name&"]. [/krav/16]")				
 				globalWarningCounter = globalWarningCounter + 1
 			end if	
 		end if
@@ -1960,7 +1989,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(super, PropertyNames, inheritanceElementList)
+				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(baseElement, super, PropertyNames, inheritanceElementList)
 			end if
 		end if
 	next
@@ -3169,12 +3198,13 @@ sub FindInvalidElementsInPackage(package)
 	call checkSubPackageStereotype(package)
 	
 	'Iso 19103 Requirement 16 - unique (NC?)Names on subpackages within the package.
-	if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
-		Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"]. [/krav/16]")				
-		globalErrorCounter = globalErrorCounter + 1 
-	end if
+	call checkSubPackagesUniqueNames(package)
+	'if ClassAndPackageNames.IndexOf(UCase(package.Name),0) <> -1 then
+	'	Session.Output("Error: Package [" &startPackageName& "] has non-unique subpackage name ["&package.Name&"]. [/krav/16]")				
+	'	globalErrorCounter = globalErrorCounter + 1 
+	'end if
 
-	ClassAndPackageNames.Add UCase(package.Name)
+	'ClassAndPackageNames.Add UCase(package.Name)
 
 	'check if the package name is written correctly according to krav/navning
 	checkElementName(package)
@@ -3235,6 +3265,7 @@ sub FindInvalidElementsInPackage(package)
  			 
 	' Navigate the elements collection, pick the classes, find the definitions/notes and do sth. with it 
 	'Session.Output( " number of elements in package: " & elements.Count) 
+	ClassNames.Clear()
 	dim i 
 	for i = 0 to elements.Count - 1 
 		dim currentElement as EA.Element 
@@ -3260,18 +3291,18 @@ sub FindInvalidElementsInPackage(package)
 		'Iso 19103 Requirement 16 - unique NCNames of all properties within the classifier.
 		'Inherited properties  also included, strictly not an error situation but implicit redefinition is not well supported anyway
 		if currentElement.Type = "Class" or currentElement.Type = "DataType" or currentElement.Type = "Enumeration" or currentElement.Type = "Interface" then
-			if ClassAndPackageNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
+			if ClassNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
 				Session.Output("Error: Class [«" &currentElement.Stereotype& "» "&currentElement.Name&"] in package: [" &package.Name& "] has non-unique name. [/krav/16]")				
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 
-			ClassAndPackageNames.Add UCase(currentElement.Name)
+			ClassNames.Add UCase(currentElement.Name)
 
 			call krav16unikeNCnavn(currentElement)
 		else
 			' ---OTHER ARTIFACTS--- Do their names also need to be tested for uniqueness? (need to be different?)
-			if currentElement.Type <> "Note" and currentElement.Type <> "Text" and currentElement.Type <> "Boundary" then
-				if ClassAndPackageNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
+			if currentElement.Type <> "Note" and currentElement.Type <> "Text" and currentElement.Type <> "Boundary"and currentElement.Type <> "Change" then
+				if ClassNames.IndexOf(UCase(currentElement.Name),0) <> -1 then
 					Session.Output("Debug: Unexpected unknown element with non-unique name [«" &currentElement.Stereotype& "» " &currentElement.Name& "]. EA-type: [" &currentElement.Type& "]. [/krav/16]")
 					'This test is dependent on where the artifact is in the test sequence 
 				end if
@@ -3580,8 +3611,10 @@ globalWarningCounter = 0
 'Global list of all used names
 'http://sparxsystems.com/enterprise_architect_user_guide/12.1/automation_and_scripting/reference.html
 dim startPackageName
-dim ClassAndPackageNames
-Set ClassAndPackageNames = CreateObject("System.Collections.ArrayList")
+dim ClassNames
+Set ClassNames = CreateObject("System.Collections.ArrayList")
+dim PackageNames
+Set PackageNames = CreateObject("System.Collections.ArrayList")
 'Global objects for testing whether a class is showing all its content in at least one diagram. /krav/18
 dim startPackage as EA.Package
 dim diaoList
