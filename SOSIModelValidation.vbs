@@ -11,9 +11,9 @@
 ' Author: Section for standardization and technology development - Norwegian Mapping Authority
 
 
-' Version: 1.2.1
+' Version: 1.2.2beta2
 
-' Date: 2017-05-23 
+' Date: 2018-08-09 
 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -144,7 +144,7 @@
 					mess = mess + ""&Chr(13)&Chr(10)
 					mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2")
+					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2.2beta2")
 					select case box
 						case vbOK
 							'inputBoxGUI to receive user input regarding the log level
@@ -156,7 +156,9 @@
 							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
 							logLevelInputBoxText = logLevelInputBoxText+ "W - Warning log level (recommended): logs error and warning messages."&Chr(13)&Chr(10)
 							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-							logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W:"&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "X - Exceptional warning log level (incomplete): logs error and warning messages except some NCName errors on codes in two specific codelists Kommunenummer and Fylkesnummer ."&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W or X:"&Chr(13)&Chr(10)
 							correctInput = false
 							abort = false
 							do while not correctInput
@@ -171,13 +173,18 @@
 										'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
 										globalLogLevelIsWarning = true
 										correctInput = true
+									case UCase(logLevelFromInputBox) = "X"	
+										'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
+										globalLogLevelIsWarning = true
+										globalLogLevelIsVarning = true
+										correctInput = true
 									case IsEmpty(logLevelFromInputBox)
 										'user pressed cancel or closed the dialog
 										MsgBox "Abort",64
 										abort = true
 										exit do
 									case else
-										MsgBox "You made an incorrect selection! Please enter either 'E' or 'W'.",48
+										MsgBox "You made an incorrect selection! Please enter either 'E' or 'W' or 'X'.",48
 								end select
 							
 							loop
@@ -1499,23 +1506,35 @@ sub krav6mnemoniskKodenavn(theElement)
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		'check if the name is NCName
-		if NOT IsNCName(attr.Name) then
-			'count number of numeric initial values for one list
-			numberOfFaults = numberOfFaults + 1
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
-			if goodNames then
-				badName = attr.Name
+		if globalLogLevelIsVarning and theElement.Name = "Kommunenummer" or theElement.Name = "Fylkesnummer" then
+			if NOT IsNCNameV(attr.Name) then
+				'count number of numeric initial values for one list
+				numberOfFaults = numberOfFaults + 1
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				if goodNames then
+					badName = attr.Name
+				end if
+				goodNames = false 
+			end if 
+		else
+			if NOT IsNCName(attr.Name) then
+				'count number of numeric initial values for one list
+				numberOfFaults = numberOfFaults + 1
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				if goodNames then
+					badName = attr.Name
+				end if
+				goodNames = false 
+			end if 
+			'check if name is not lowerCameCase
+			if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
+				numberOfWarnings = numberOfWarnings + 1
+				if globalLogLevelIsWarning then
+					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				end if
+				lowerCameCase = false
 			end if
-			goodNames = false 
-		end if 
-		'check if name is not lowerCameCase
-		if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
-			numberOfWarnings = numberOfWarnings + 1
-			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
-			end if
-			lowerCameCase = false
-		End if
+		end if
 	next
 	
 	
@@ -1555,10 +1574,39 @@ Function IsNCName(streng)
 		end if
 	next
 	tegn = Mid(streng,1,1)
+	'if not globalLogLevelIsVarning then
 	if tegn = "1" or tegn = "2" or tegn = "3" or tegn = "4" or tegn = "5" or tegn = "6" or tegn = "7" or tegn = "8" or tegn = "9" or tegn = "0" or tegn = "-" or tegn = "." Then
 		u=false
-	end if 
+	end if
+	'end if
 	IsNCName = u
+End Function
+
+Function IsNCNameV(streng)
+    Dim txt, res, tegn, i, u
+    u = true
+	txt = ""
+	For i = 1 To Len(streng)
+        tegn = Mid(streng,i,1)
+	    if tegn = " " or tegn = "," or tegn = """" or tegn = "#" or tegn = "$" or tegn = "%" or tegn = "&" or tegn = "(" or tegn = ")" or tegn = "*" Then
+		    u=false
+		end if 
+	
+		if tegn = "+" or tegn = "/" or tegn = ":" or tegn = ";" or tegn = "<" or tegn = ">" or tegn = "?" or tegn = "@" or tegn = "[" or tegn = "\" Then
+		    u=false
+		end if 
+		If tegn = "]" or tegn = "^" or tegn = "`" or tegn = "{" or tegn = "|" or tegn = "}" or tegn = "~" or tegn = "'" or tegn = "´" or tegn = "¨" Then
+		    u=false
+		end if 
+		if tegn <  " " then
+		    u=false
+		end if
+	next
+	tegn = Mid(streng,1,1)
+	'if tegn = "1" or tegn = "2" or tegn = "3" or tegn = "4" or tegn = "5" or tegn = "6" or tegn = "7" or tegn = "8" or tegn = "9" or tegn = "0" or tegn = "-" or tegn = "." Then
+	'	u=false
+	'end if
+	IsNCNameV = u
 End Function
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -3564,6 +3612,8 @@ end sub
 'global variables 
 dim globalLogLevelIsWarning 'boolean variable indicating if warning log level has been choosen or not
 globalLogLevelIsWarning = true 'default setting for warning log level is true
+dim globalLogLevelIsVarning 'boolean variable indicating if some specific errors should be ignored
+globalLogLevelIsVarning = false 'default setting for errors on NCNames in codes
  
 dim startClass as EA.Element  'the class which is the starting point for searching for multiple inheritance in the findMultipleInheritance subroutine 
 dim loopCounterMultipleInheritance 'integer value counting number of loops while searching for multiple inheritance
