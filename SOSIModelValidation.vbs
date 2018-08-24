@@ -1638,6 +1638,7 @@ sub krav7kodedefinisjon(theElement)
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
 				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"]. [/krav/7]")
+				globalWarningCounter = globalWarningCounter + 1
 			end if
 			if goodNames then
 				badName = attr.Name
@@ -1650,7 +1651,7 @@ sub krav7kodedefinisjon(theElement)
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
 			'Session.Output("Warning: Missing definition for code ["&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the codes lack definition. [/krav/7]")
-			globalWarningCounter = globalWarningCounter + 1
+			'globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
 end sub
@@ -1760,7 +1761,7 @@ sub krav15stereotyper(theElement)
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
 			'Session.Output("Warning: Unknown attribute stereotypes starting with [«"&badStereotype&"» "&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the attributes have unknown stereotype. [/krav/15]")
-			globalWarningCounter = globalWarningCounter + 1
+			'globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
 
