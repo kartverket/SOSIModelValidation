@@ -19,7 +19,7 @@
 ' Implemented rules: 
 '	/krav/3:  
 '			Find elements (classes, attributes, navigable association roles, operations, datatypes)  
-'	        without definition (notes/rolenotes) in the selected package and subpackages 
+'	        	without definition (notes/rolenotes) in the selected package and subpackages 
 '
 '	/krav/6:		
 '			Iso 19103 Requirement 6 - NCNames in codelist codes.
@@ -70,9 +70,9 @@
 '			classes and associations start with upper case 
 '	/krav/SOSI-modellregister/applikasjonsskjema/status
 '			Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value
-'   /krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer
+'   	/krav/SOSI-modellregister/applikasjonsskjema/versjonsnummer
 '           Check if the last part of the package name is a version number.  Ignores the text "Utkast" for this check
-'   /krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast
+'   	/krav/SOSI-modellregister/applikasjonsskjema/standard/pakkenavn/utkast
 '			Check if packages with SOSI_modellstatus tag "utkast" has "Utkast" in package name. Also do the reverse check.
 '  	/req/uml/constraint
 '			To check if a constraint lacks name or definition. 
@@ -80,7 +80,7 @@
 '     		To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
 '	/req/uml/structure
 '			Check that all abstract classes in application schema has at least one instantiable subclass within the same schema.  Check that no classes in application schema has stereotype interface
-'   /anbefaling/1:
+'   	/anbefaling/1:
 '			Checks every initial values in codeLists and enumerations for a package. If one or more initial values are numeric in one list, 
 ' 			it return a warning message. 
 '  	/anbefaling/styleGuide:
@@ -98,7 +98,6 @@
 '			Check that ApplicationSchema packages shall have a language tag. Also check that ApplicationSchema have designation and definition tags in English (i.e. tag value ending with @en)
 '	/req/general/feature
 ' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. 
-'			Not implemented: Check that FeatureTypes within a ApplicationSchema have unique names.
 '	/req/uml/integration
 '			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below or above start package for this script.
 '	/krav/17
