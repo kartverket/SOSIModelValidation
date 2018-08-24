@@ -11,9 +11,9 @@
 ' Author: Section for standardization and technology development - Norwegian Mapping Authority
 
 
-' Version: 1.2.1
+' Version: 1.2.2
 
-' Date: 2017-05-23 
+' Date: 2018-08-24 
 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -100,8 +100,7 @@
 ' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. 
 '			Not implemented: Check that FeatureTypes within a ApplicationSchema have unique names.
 '	/req/uml/integration
-'			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below start package for this script.
-'			Not implemented yet: Check of package hierarchy of external referenced packages for more than one applicationSchema. Check of package hierachy above start package for more applicationSchemas.
+'			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below or above start package for this script.
 '	/krav/17
 '			Check that package dependencies are shown in at least one package diagram. 
 '	/krav/21
@@ -144,7 +143,8 @@
 					mess = mess + ""&Chr(13)&Chr(10)
 					mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2")
+					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2.2")
+
 					select case box
 						case vbOK
 							'inputBoxGUI to receive user input regarding the log level
@@ -156,7 +156,9 @@
 							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
 							logLevelInputBoxText = logLevelInputBoxText+ "W - Warning log level (recommended): logs error and warning messages."&Chr(13)&Chr(10)
 							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
-							logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W:"&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "X - Exceptional warning log level (incomplete): logs error and warning messages except some NCName errors on codes in two specific codelists Kommunenummer and Fylkesnummer ."&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ ""&Chr(13)&Chr(10)
+							logLevelInputBoxText = logLevelInputBoxText+ "Enter E or W or X:"&Chr(13)&Chr(10)
 							correctInput = false
 							abort = false
 							do while not correctInput
@@ -171,13 +173,18 @@
 										'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
 										globalLogLevelIsWarning = true
 										correctInput = true
+									case UCase(logLevelFromInputBox) = "X"	
+										'code for when W = Error log level has been selected, both Error and Warning messages will be shown in the Script Output window
+										globalLogLevelIsWarning = true
+										globalLogLevelIsVarning = true
+										correctInput = true
 									case IsEmpty(logLevelFromInputBox)
 										'user pressed cancel or closed the dialog
 										MsgBox "Abort",64
 										abort = true
 										exit do
 									case else
-										MsgBox "You made an incorrect selection! Please enter either 'E' or 'W'.",48
+										MsgBox "You made an incorrect selection! Please enter either 'E' or 'W' or 'X'.",48
 								end select
 							
 							loop
@@ -185,7 +192,7 @@
 
 							if not abort then
 								'give an initial feedback in system output 
-								Session.Output("SOSI model validation 1.2 started. "&Now())
+								Session.Output("SOSI model validation 1.2.dev started. "&Now())
 								'Check model for script breaking structures
 								if scriptBreakingStructuresInModel(thePackage) then
 									Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
@@ -200,7 +207,9 @@
 								call findPackagesToBeReferenced()
 								call checkPackageDependency(thePackage)
 								call dependencyLoop(thePackage.Element)
-							  
+								
+								'check if there are packages with stereotype "applicationSchema"in package hierarchy upwards from start package
+								CheckParentPackageStereotype(thePackage)
                 'For /req/Uml/Profile:
 							  Set ProfileTypes = CreateObject("System.Collections.ArrayList")
 							  Set ExtensionTypes = CreateObject("System.Collections.ArrayList")
@@ -243,7 +252,7 @@
 			
 								end if 
 								'final report
-								Session.Output("-----Report for package ["&startPackageName&"]-----") 		
+								Session.Output("-----Report for package [«" &thePackage.Element.Stereotype& "» "&startPackageName&"]-----") 		
 								Session.Output("   Number of errors found: " & globalErrorCounter) 
 								if globalLogLevelIsWarning then
 									Session.Output("   Number of warnings found: " & globalWarningCounter)
@@ -746,8 +755,8 @@ sub findMultipleInheritance(currentElement)
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkTVLanguageAndDesignation
-' Author: Sara Henriksen (original version), Åsmund Tjora
-' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17
+' Author: Sara Henriksen (original version), Åsmund Tjora, Tore Johnsen
+' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17, enhanced 23.08.18 
 ' Purpose: Check if the ApplicationSchema-package got a tag named "language" and  check if the value is empty or not. 
 ' Check that designation tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) designation for ApplicationSchema packages
 ' Check that definition tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) definition for ApplicationSchema packages
@@ -776,7 +785,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					'check if the value is no or en, if not, retrun a warning 
 					if not mid(StrReverse(currentTaggedValue.Value),1,2) = "ne" and not mid(StrReverse(currentTaggedValue.Value),1,2) = "on" then	
 						if globalLogLevelIsWarning then
-							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
+							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value """&currentTaggedvalue.Value&"""  which is neither ""no"" nor ""en"". [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
 							globalWarningCounter = globalWarningCounter + 1 
 						end if
 					end if
@@ -784,14 +793,14 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					exit for 
 				end if   
 				if currentTaggedValue.Name = "language" and currentTaggedValue.Value= "" then 
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] is missing a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 					globalErrorCounter = globalErrorCounter + 1 
 					taggedValueLanguageMissing = false 
 					exit for 
 				end if 
  			next 
 			if taggedValueLanguageMissing then 
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if 
@@ -833,7 +842,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 						end if
 						
 						if not (checkAtMark and checkQuoteMark) then
-							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an illegal value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
+							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an invalid value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
@@ -852,18 +861,18 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 							end if	
 						end if
 					else
-						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] has no value [/krav/taggedValueSpråk]") 
+						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] is missing a value. [/krav/taggedValueSpråk]") 
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if 						
 			next
 			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
 				if not valueExists then
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a " &taggedValueName& " tag [/krav/taggedValueSpråk]")
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [" &taggedValueName& "] tag [/krav/taggedValueSpråk]")
 					globalErrorCounter = globalErrorCounter + 1
 				else
 					if not enDesignation then
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] lacks a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] is missing a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if
@@ -976,8 +985,8 @@ end sub
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkValueOfTVVersion
-' Author: Sara Henriksen
-' Date: 25.07.16 
+' Author: Sara Henriksen, Tore Johnsen
+' Date: 25.07.16 - Enhanced 23.08.18
 ' Purpose: To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
 ' req/uml/packaging
 ' sub procedure to check if the tagged value with the provided name exist in the ApplicationSchema, and if the value is emty it returns an Error-message. 
@@ -1001,7 +1010,7 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 					'remove spaces before and after a string, if the value only contains blanks  the value is empty
 					currentExistingTaggedValue.Value = Trim(currentExistingTaggedValue.Value)
 					if len (currentExistingTaggedValue.Value) = 0 then 
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] has an empty version-tag. [req/uml/packaging]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [version] is missing a value. [req/uml/packaging]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueVersionMissing = false 
 					else
@@ -1012,12 +1021,12 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 			next
 			'if tagged value version lacks for the package, return an error 
 			if taggedValueVersionMissing then
-				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [version] tag. [req/uml/packaging]")
+				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [version] tag. [req/uml/packaging]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if 
 	end if
-end sub 
+end sub  
 '-------------------------------------------------------------END-------------------------------------------------------------------------------------------- 
  
 
@@ -1125,8 +1134,8 @@ end sub
  
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: ValidValueSOSI_modellstatus 
-' Author: Sara Henriksen
-' Date: 25.07.16
+' Author: Sara Henriksen, Tore Johnsen
+' Date: 25.07.16 - enhanced 23.08.18
 ' Purpose: Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value 
 ' /krav/SOSI-modellregister/applikasjonsskjema/status
 ' sub procedure to check if the tagged value with the provided name exist, and checks if the value is valid or not 
@@ -1153,8 +1162,12 @@ sub ValidValueSOSI_modellstatus(theElement, taggedValueName)
 					if currentExistingTaggedValue.Value = "utkast" or currentExistingTaggedValue.Value = "gyldig" or currentExistingTaggedValue.Value = "utkastOgSkjult" or currentExistingTaggedValue.Value = "foreslått" or currentExistingTaggedValue.Value = "erstattet" or currentExistingTaggedValue.Value = "tilbaketrukket" or currentExistingTaggedValue.Value = "ugyldig" then 
 
 						taggedValueSOSIModellstatusMissing = false 
+					elseif currentExistingTaggedValue.Value = "" then
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] is missing a value. [/krav/SOSI-modellregister/applikasjonsskjema/status]")
+						globalErrorCounter = globalErrorCounter + 1
+						taggedValueSOSIModellstatusMissing = false
 					else
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value [" &currentExistingTaggedValue.Value& "]. The value is not approved. [/krav/SOSI-modellregister/applikasjonsskjema/status]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value """ &currentExistingTaggedValue.Value& """. Valid values are: ""utkast"", ""utkastOgSkjult"", ""foreslått"", ""gyldig"", ""erstattet"", ""tilbaketrukket"" or ""ugyldig"". [/krav/SOSI-modellregister/applikasjonsskjema/status]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueSOSIModellstatusMissing = false 
 					end if 
@@ -1163,12 +1176,12 @@ sub ValidValueSOSI_modellstatus(theElement, taggedValueName)
 
 			'if the tag doesen't exist, return an error-message 
 			if taggedValueSOSIModellstatusMissing then
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name& "] lacks a [SOSI_modellstatus] tag. [krav/SOSI-modellregister/applikansjonsskjema/status]")
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name& "] is missing a [SOSI_modellstatus] tag. [krav/SOSI-modellregister/applikansjonsskjema/status]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if
 	end if 
-end sub 
+end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
@@ -1499,23 +1512,35 @@ sub krav6mnemoniskKodenavn(theElement)
 		'count number of attributes in one list
 		numberInList = numberInList + 1 
 		'check if the name is NCName
-		if NOT IsNCName(attr.Name) then
-			'count number of numeric initial values for one list
-			numberOfFaults = numberOfFaults + 1
-			Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
-			if goodNames then
-				badName = attr.Name
+		if globalLogLevelIsVarning and theElement.Name = "Kommunenummer" or theElement.Name = "Fylkesnummer" then
+			if NOT IsNCNameV(attr.Name) then
+				'count number of numeric initial values for one list
+				numberOfFaults = numberOfFaults + 1
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				if goodNames then
+					badName = attr.Name
+				end if
+				goodNames = false 
+			end if 
+		else
+			if NOT IsNCName(attr.Name) then
+				'count number of numeric initial values for one list
+				numberOfFaults = numberOfFaults + 1
+				Session.Output("Error: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has illegal code name ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				if goodNames then
+					badName = attr.Name
+				end if
+				goodNames = false 
+			end if 
+			'check if name is not lowerCameCase
+			if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
+				numberOfWarnings = numberOfWarnings + 1
+				if globalLogLevelIsWarning then
+					Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
+				end if
+				lowerCameCase = false
 			end if
-			goodNames = false 
-		end if 
-		'check if name is not lowerCameCase
-		if NOT (mid(attr.Name,1,1) = LCASE(mid(attr.Name,1,1)) ) then
-			numberOfWarnings = numberOfWarnings + 1
-			if globalLogLevelIsWarning then
-				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] has code name that is not lowerCamelCase ["&attr.Name&"]. Recommended to use the script <lagLovligeNCNavnPåKodelistekoder>. [/krav/6]")
-			end if
-			lowerCameCase = false
-		End if
+		end if
 	next
 	
 	
@@ -1555,10 +1580,39 @@ Function IsNCName(streng)
 		end if
 	next
 	tegn = Mid(streng,1,1)
+	'if not globalLogLevelIsVarning then
 	if tegn = "1" or tegn = "2" or tegn = "3" or tegn = "4" or tegn = "5" or tegn = "6" or tegn = "7" or tegn = "8" or tegn = "9" or tegn = "0" or tegn = "-" or tegn = "." Then
 		u=false
-	end if 
+	end if
+	'end if
 	IsNCName = u
+End Function
+
+Function IsNCNameV(streng)
+    Dim txt, res, tegn, i, u
+    u = true
+	txt = ""
+	For i = 1 To Len(streng)
+        tegn = Mid(streng,i,1)
+	    if tegn = " " or tegn = "," or tegn = """" or tegn = "#" or tegn = "$" or tegn = "%" or tegn = "&" or tegn = "(" or tegn = ")" or tegn = "*" Then
+		    u=false
+		end if 
+	
+		if tegn = "+" or tegn = "/" or tegn = ":" or tegn = ";" or tegn = "<" or tegn = ">" or tegn = "?" or tegn = "@" or tegn = "[" or tegn = "\" Then
+		    u=false
+		end if 
+		If tegn = "]" or tegn = "^" or tegn = "`" or tegn = "{" or tegn = "|" or tegn = "}" or tegn = "~" or tegn = "'" or tegn = "´" or tegn = "¨" Then
+		    u=false
+		end if 
+		if tegn <  " " then
+		    u=false
+		end if
+	next
+	tegn = Mid(streng,1,1)
+	'if tegn = "1" or tegn = "2" or tegn = "3" or tegn = "4" or tegn = "5" or tegn = "6" or tegn = "7" or tegn = "8" or tegn = "9" or tegn = "0" or tegn = "-" or tegn = "." Then
+	'	u=false
+	'end if
+	IsNCNameV = u
 End Function
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
@@ -1590,6 +1644,7 @@ sub krav7kodedefinisjon(theElement)
 			numberOfFaults = numberOfFaults + 1
 			if globalLogLevelIsWarning then
 				Session.Output("Warning: Class [«" &theElement.Stereotype& "» " &theElement.Name& "] is missing definition for code ["&attr.Name&"]. [/krav/7]")
+				globalWarningCounter = globalWarningCounter + 1
 			end if
 			if goodNames then
 				badName = attr.Name
@@ -1602,7 +1657,7 @@ sub krav7kodedefinisjon(theElement)
 	if goodNames = false then 
 		if globalLogLevelIsWarning then
 			'Session.Output("Warning: Missing definition for code ["&badName&"] in class: [«" &theElement.Stereotype& "» " &theElement.Name& "]. "&numberOfFaults&"/"&numberInList&" of the codes lack definition. [/krav/7]")
-			globalWarningCounter = globalWarningCounter + 1
+			'globalWarningCounter = globalWarningCounter + 1
 		end if	
 	end if
 end sub
@@ -1610,14 +1665,14 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub Name: krav14 - inherit from same stereotype
+' Sub Name: checkInheritance - inherit from same stereotype
 ' Author: Tore Johnsen
 ' Date: 2016-08-22
 ' Purpose: Checks that there is no inheritance between classes with unequal stereotypes.
 '		/krav/14
 ' @param[in]: currentElement
 
-sub krav14(currentElement)
+sub checkInheritance(currentElement)
 
 	dim connectors as EA.Collection
 	set connectors = currentElement.Connectors
@@ -1650,21 +1705,21 @@ end sub
 ' Purpose: Checks that no classes with stereotype <<FeatureType>> inherits from a class named GM_Object or TM_Object.
 ' @param[in]: currentElement, startClass
 
-sub reqGeneralFeature(currentElement, startClass)
+sub reqGeneralFeature(currentElement, reqGeneralFeatureStartClass)
 	
-	dim superClass as EA.Element
+	dim reqGeneralFeatureSuperClass as EA.Element
 	dim connector as EA.Connector
 
 	for each connector in currentElement.Connectors
 		if connector.Type = "Generalization" then
 			if UCASE(currentElement.Stereotype) = "FEATURETYPE" then
 				if currentElement.ElementID = connector.ClientID then
-					set superClass = Repository.GetElementByID(connector.SupplierID)
+					set reqGeneralFeatureSuperClass = Repository.GetElementByID(connector.SupplierID)
 
-					if UCASE(superClass.Name) = "GM_OBJECT" or UCASE(superClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(superClass.Stereotype) = "FEATURETYPE" then
-					session.output("Error: Class [" & startClass.Name & "] inherits from class [" & superclass.name & "] [req/general/feature]")
+					if UCASE(reqGeneralFeatureSuperClass.Name) = "GM_OBJECT" or UCASE(reqGeneralFeatureSuperClass.Name) = "TM_OBJECT" and UCASE(currentElement.Stereotype) = "FEATURETYPE" and UCASE(reqGeneralFeatureSuperClass.Stereotype) = "FEATURETYPE" then
+					session.output("Error: Class [" & reqGeneralFeatureStartClass.Name & "] inherits from class named [" & reqGeneralFeatureSuperClass.name & "]. [req/general/feature]")
 					globalErrorCounter = globalErrorCounter + 1
-					else call reqGeneralFeature(superClass, startClass)
+					else call reqGeneralFeature(reqGeneralFeatureSuperClass, reqGeneralFeatureStartClass)
 					end if
 				end if
 			end if
@@ -1762,6 +1817,7 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
+
 ' Sub Name: checkSubPackagesUniqueNames
 ' Author: Kent Jonsrud
 ' Date: 2018-08-23
@@ -1790,13 +1846,15 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub Name: krav16-unikeNCnavn
+
+' Sub Name: checkUniqueNCnames
+
 ' Author: Kent Jonsrud
 ' Date: 2016-08-09
 ' Purpose: 
     '/krav/16 on role names and attribute names
  
-sub krav16unikeNCnavn(theElement)
+sub checkUniqueNCnames(theElement)
 	
 	dim goodNames, lowerCameCase, badName, roleName
 	goodNames = true
@@ -1900,7 +1958,9 @@ sub krav16unikeNCnavn(theElement)
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(theElement, super, PropertyNames, inheritanceElementList)
+
+				if hopOutOfEndlessRecursion=0 then call checkInheritedUniqueNCnames(theElement,super, PropertyNames, inheritanceElementList)
+
 			end if
 		end if
 	next
@@ -1909,7 +1969,9 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-sub krav16unikeNCnavnArvede(baseElement, theElement, PropertyNames, inheritanceElementList)
+
+sub checkInheritedUniqueNCnames(baseElement,theElement, PropertyNames, inheritanceElementList)
+
 	dim goodNames, lowerCameCase, badName, roleName
 	goodNames = true
 	lowerCameCase = true
@@ -1991,7 +2053,9 @@ sub krav16unikeNCnavnArvede(baseElement, theElement, PropertyNames, inheritanceE
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(baseElement, super, PropertyNames, inheritanceElementList)
+
+				if hopOutOfEndlessRecursion=0 then call checkInheritedUniqueNCnames(baseElement,super, PropertyNames, inheritanceElementList)
+
 			end if
 		end if
 	next
@@ -2445,7 +2509,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav12
+' Sub name: checkDataTypeAssociation
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if a given dataType element's (element with stereotype DataType or of type DataType) associations are 
@@ -2456,7 +2520,7 @@ end sub
 '				theConnector (EA.Connector). The connector/association between theElement and theElementOnOppositeSide
 '				theElementOnOppositeSide (EA.Element). The classifier on the other side of the connector/association
  
-sub krav12(theElement, theConnector, theElementOnOppositeSide)
+sub checkDataTypeAssociation(theElement, theConnector, theElementOnOppositeSide)
 	dim currentElement AS EA.Element
 	set currentElement = theElement
 	dim elementOnOppositeSide AS EA.Element
@@ -2488,7 +2552,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav10
+' Sub name: checkMultiplicityOnNavigableAssociationEnds
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if the given association properties fulfill the requirements regarding
@@ -2501,7 +2565,7 @@ end sub
 '				targetEndName (CharacterString). role name on association's target end
 '				sourceEndCardinality (CharacterString). multiplicity on association's source end
 '				targetEndCardinality (CharacterString). multiplicity on association's target end
-sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+sub checkMultiplicityOnNavigableAssociationEnds(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & sourceEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
@@ -2516,7 +2580,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav11
+' Sub name: checkRoleNamesOnNavigableAssociationEnds
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if the given association has role names on navigable ends 
@@ -2528,7 +2592,7 @@ end sub
 '				sourceEndName (CharacterString). role name on association's source end
 '				targetEndName (CharacterString). role name on association's target end
 '				elementOnOppositeSide (EA.Element). The element on the opposite side of the association to check
-sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+sub checkRoleNamesOnNavigableAssociationEnds(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 	if sourceEndNavigable = "Navigable" and sourceEndName = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
@@ -3171,6 +3235,32 @@ sub CheckSubPackageStereotype(rootPackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'Sub name: 		CheckParentPackageStereotype
+'Author: 		Magnus Karge
+'Date: 			20180822
+'Purpose: 		Check the stereotypes of all direct and indirect parent packages of the start package in the package hierarchy for occurrences 
+'				of stereotype "ApplicationSchema".  Only the start package shall have stereotype "ApplicationSchema". 
+'Parameters:	package  (a package with stereotype applicationSchema, this package is the package the validation shall be conducted on)
+' 
+sub CheckParentPackageStereotype(package)
+		
+	dim parentPackageID
+		parentPackageID = package.ParentID 
+	dim parentPackage as EA.Package
+	set parentPackage = Repository.GetPackageByID(parentPackageID)
+	'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0)
+	do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
+		if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Error: Package [«" &parentPackage.Element.Stereotype& "» " &parentPackage.Name& "]. Package with stereotype «ApplicationSchema» cannot contain subpackages with stereotype «ApplicationSchema». [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		
+		parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
+		set parentPackage = Repository.GetPackageByID(parentPackageID) 'setting the new parent package
+	loop
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
 ' Author: Kent Jonsrud, Magnus Karge...
@@ -3206,7 +3296,6 @@ sub FindInvalidElementsInPackage(package)
 	'	globalErrorCounter = globalErrorCounter + 1 
 	'end if
 
-	'ClassAndPackageNames.Add UCase(package.Name)
 
 	'check if the package name is written correctly according to krav/navning
 	checkElementName(package)
@@ -3286,7 +3375,7 @@ sub FindInvalidElementsInPackage(package)
 		end if
 
 		' check if inherited stereotypes are all the same
-		Call krav14(currentElement)
+		Call checkInheritance(currentElement)
 		' check that no class inherits from a class named GM_Object or TM_Object
 		Call reqGeneralFeature(currentElement, currentElement)
 		' ---ALL CLASSIFIERS---
@@ -3300,7 +3389,7 @@ sub FindInvalidElementsInPackage(package)
 
 			ClassNames.Add UCase(currentElement.Name)
 
-			call krav16unikeNCnavn(currentElement)
+			call checkUniqueNCnames(currentElement)
 		else
 			' ---OTHER ARTIFACTS--- Do their names also need to be tested for uniqueness? (need to be different?)
 			if currentElement.Type <> "Note" and currentElement.Type <> "Text" and currentElement.Type <> "Boundary"and currentElement.Type <> "Change" then
@@ -3538,17 +3627,17 @@ sub FindInvalidElementsInPackage(package)
 					call checkElementName(currentConnector)
 					
 					'check if elements on both sides of the association are classes with stereotype dataType or of element type DataType
-					call krav12(currentElement, currentConnector, elementOnOppositeSide)
+					call checkDataTypeAssociation(currentElement, currentConnector, elementOnOppositeSide)
 													
 					'check if there is a definition on navigable ends (navigable association roles) of the connector 
 					'Call the subfunction with currentConnector as parameter 
 					CheckDefinition(currentConnector) 
  																								 
 					'check if there is multiplicity on navigable ends (krav/10)
-					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+					call checkMultiplicityOnNavigableAssociationEnds(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 					 
 					'check if there are role names on navigable ends  (krav/11)
-					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+					call checkRoleNamesOnNavigableAssociationEnds(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 																		 
 					'check if role names on connector ends start with lower case (regardless of navigability) (krav/navning)
 					call checkRoleNames(currentElement, sourceEndName, targetEndName, elementOnOppositeSide)
@@ -3597,6 +3686,8 @@ end sub
 'global variables 
 dim globalLogLevelIsWarning 'boolean variable indicating if warning log level has been choosen or not
 globalLogLevelIsWarning = true 'default setting for warning log level is true
+dim globalLogLevelIsVarning 'boolean variable indicating if some specific errors should be ignored
+globalLogLevelIsVarning = false 'default setting for errors on NCNames in codes
  
 dim startClass as EA.Element  'the class which is the starting point for searching for multiple inheritance in the findMultipleInheritance subroutine 
 dim loopCounterMultipleInheritance 'integer value counting number of loops while searching for multiple inheritance
