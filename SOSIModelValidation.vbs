@@ -753,8 +753,8 @@ sub findMultipleInheritance(currentElement)
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkTVLanguageAndDesignation
-' Author: Sara Henriksen (original version), Åsmund Tjora
-' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17
+' Author: Sara Henriksen (original version), Åsmund Tjora, Tore Johnsen
+' Date: 26.07.16 (original version), 20.01.17 (release 1.1), 02.02.17, enhanced 23.08.18 
 ' Purpose: Check if the ApplicationSchema-package got a tag named "language" and  check if the value is empty or not. 
 ' Check that designation tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) designation for ApplicationSchema packages
 ' Check that definition tags have correct structure: "{name}"@{language}, and that there is at least one English ("{name}"@en) definition for ApplicationSchema packages
@@ -783,7 +783,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					'check if the value is no or en, if not, retrun a warning 
 					if not mid(StrReverse(currentTaggedValue.Value),1,2) = "ne" and not mid(StrReverse(currentTaggedValue.Value),1,2) = "on" then	
 						if globalLogLevelIsWarning then
-							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value which is not <no> or <en>. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
+							Session.Output("Warning: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["&currentTaggedvalue.Name& "] has a value """&currentTaggedvalue.Value&"""  which is neither ""no"" nor ""en"". [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]")
 							globalWarningCounter = globalWarningCounter + 1 
 						end if
 					end if
@@ -791,14 +791,14 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 					exit for 
 				end if   
 				if currentTaggedValue.Name = "language" and currentTaggedValue.Value= "" then 
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] lacks a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag ["& currentTaggedValue.Name &"] is missing a value. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 					globalErrorCounter = globalErrorCounter + 1 
 					taggedValueLanguageMissing = false 
 					exit for 
 				end if 
  			next 
 			if taggedValueLanguageMissing then 
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [language] tag. [/krav/flerspråklighet/pakke][/krav/taggedValueSpråk]") 
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if 
@@ -840,7 +840,7 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 						end if
 						
 						if not (checkAtMark and checkQuoteMark) then
-							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an illegal value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
+							Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name&"] \ tag [" &taggedValueName& "] has an invalid value.  Expected value ""{" &taggedValueName& "}""@{language code} [/krav/taggedValueSpråk]")
 							globalErrorCounter = globalErrorCounter + 1 
 						end if 
 					
@@ -859,18 +859,18 @@ sub checkTVLanguageAndDesignation(theElement, taggedValueName)
 							end if	
 						end if
 					else
-						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] has no value [/krav/taggedValueSpråk]") 
+						Session.Output("Error: Package [«" &theElement.Stereotype& "» " &theElement.Name& "] \ tag [" &taggedValueName& "] is missing a value. [/krav/taggedValueSpråk]") 
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if 						
 			next
 			if UCase(theElement.Stereotype) = UCase("applicationSchema") then
 				if not valueExists then
-					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] does not have a " &taggedValueName& " tag [/krav/taggedValueSpråk]")
+					Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [" &taggedValueName& "] tag [/krav/taggedValueSpråk]")
 					globalErrorCounter = globalErrorCounter + 1
 				else
 					if not enDesignation then
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] lacks a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [" &taggedValueName& "] is missing a value for English. Expected value ""{English " &taggedValueName& "}""@en [/krav/taggedValueSpråk]")
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				end if
@@ -983,8 +983,8 @@ end sub
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: checkValueOfTVVersion
-' Author: Sara Henriksen
-' Date: 25.07.16 
+' Author: Sara Henriksen, Tore Johnsen
+' Date: 25.07.16 - Enhanced 23.08.18
 ' Purpose: To check if the value of the version-tag (tagged values) for an ApplicationSchema-package is empty or not. 
 ' req/uml/packaging
 ' sub procedure to check if the tagged value with the provided name exist in the ApplicationSchema, and if the value is emty it returns an Error-message. 
@@ -1008,7 +1008,7 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 					'remove spaces before and after a string, if the value only contains blanks  the value is empty
 					currentExistingTaggedValue.Value = Trim(currentExistingTaggedValue.Value)
 					if len (currentExistingTaggedValue.Value) = 0 then 
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] has an empty version-tag. [req/uml/packaging]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] \ tag [version] is missing a value. [req/uml/packaging]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueVersionMissing = false 
 					else
@@ -1019,12 +1019,12 @@ sub checkValueOfTVVersion(theElement, taggedValueName)
 			next
 			'if tagged value version lacks for the package, return an error 
 			if taggedValueVersionMissing then
-				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] lacks a [version] tag. [req/uml/packaging]")
+				Session.Output ("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name&"] is missing a [version] tag. [req/uml/packaging]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if
 		end if 
 	end if
-end sub 
+end sub  
 '-------------------------------------------------------------END-------------------------------------------------------------------------------------------- 
  
 
@@ -1132,8 +1132,8 @@ end sub
  
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Script Name: ValidValueSOSI_modellstatus 
-' Author: Sara Henriksen
-' Date: 25.07.16
+' Author: Sara Henriksen, Tore Johnsen
+' Date: 25.07.16 - enhanced 23.08.18
 ' Purpose: Check if the ApplicationSchema-package got a tagged value named "SOSI_modellstatus" and checks if it is a valid value 
 ' /krav/SOSI-modellregister/applikasjonsskjema/status
 ' sub procedure to check if the tagged value with the provided name exist, and checks if the value is valid or not 
@@ -1160,8 +1160,12 @@ sub ValidValueSOSI_modellstatus(theElement, taggedValueName)
 					if currentExistingTaggedValue.Value = "utkast" or currentExistingTaggedValue.Value = "gyldig" or currentExistingTaggedValue.Value = "utkastOgSkjult" or currentExistingTaggedValue.Value = "foreslått" or currentExistingTaggedValue.Value = "erstattet" or currentExistingTaggedValue.Value = "tilbaketrukket" or currentExistingTaggedValue.Value = "ugyldig" then 
 
 						taggedValueSOSIModellstatusMissing = false 
+					elseif currentExistingTaggedValue.Value = "" then
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] is missing a value. [/krav/SOSI-modellregister/applikasjonsskjema/status]")
+						globalErrorCounter = globalErrorCounter + 1
+						taggedValueSOSIModellstatusMissing = false
 					else
-						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value [" &currentExistingTaggedValue.Value& "]. The value is not approved. [/krav/SOSI-modellregister/applikasjonsskjema/status]")
+						Session.Output("Error: Package [«"&theElement.Stereotype&"» "&theElement.Name& "] \ tag [SOSI_modellstatus] has a value """ &currentExistingTaggedValue.Value& """. Valid values are: ""utkast"", ""utkastOgSkjult"", ""foreslått"", ""gyldig"", ""erstattet"", ""tilbaketrukket"" or ""ugyldig"". [/krav/SOSI-modellregister/applikasjonsskjema/status]")
 						globalErrorCounter = globalErrorCounter + 1 
 						taggedValueSOSIModellstatusMissing = false 
 					end if 
@@ -1170,12 +1174,12 @@ sub ValidValueSOSI_modellstatus(theElement, taggedValueName)
 
 			'if the tag doesen't exist, return an error-message 
 			if taggedValueSOSIModellstatusMissing then
-				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name& "] lacks a [SOSI_modellstatus] tag. [krav/SOSI-modellregister/applikansjonsskjema/status]")
+				Session.Output("Error: Package [«"&theElement.Stereotype&"» " &theElement.Name& "] is missing a [SOSI_modellstatus] tag. [krav/SOSI-modellregister/applikansjonsskjema/status]")
 				globalErrorCounter = globalErrorCounter + 1 
 			end if 
 		end if
 	end if 
-end sub 
+end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
 
