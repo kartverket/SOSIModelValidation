@@ -11,9 +11,9 @@
 ' Author: Section for standardization and technology development - Norwegian Mapping Authority
 
 
-' Version: 1.2.2beta2
+' Version: 1.2.2
 
-' Date: 2018-08-09 
+' Date: 2018-08-24 
 
 ' Purpose: Validate model elements according to rules defined in the standard SOSI Regler for UML-modellering 5.0 
 ' Implemented rules: 
@@ -100,8 +100,7 @@
 ' 			Check that no FeatureTypes inherits from a class named GM_Object or TM_object. 
 '			Not implemented: Check that FeatureTypes within a ApplicationSchema have unique names.
 '	/req/uml/integration
-'			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below start package for this script.
-'			Not implemented yet: Check of package hierarchy of external referenced packages for more than one applicationSchema. Check of package hierachy above start package for more applicationSchemas.
+'			Check correct handling of package dependency and check that there are no applicationSchemas in the package hierarchy below or above start package for this script.
 '	/krav/17
 '			Check that package dependencies are shown in at least one package diagram. 
 '	/krav/21
@@ -144,7 +143,8 @@
 					mess = mess + ""&Chr(13)&Chr(10)
 					mess = mess + "Starts model validation for package [" & thePackage.Name &"]."&Chr(13)&Chr(10)
 
-					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2.2beta2")
+					box = Msgbox (mess, vbOKCancel, "SOSI model validation 1.2.2")
+
 					select case box
 						case vbOK
 							'inputBoxGUI to receive user input regarding the log level
@@ -192,7 +192,7 @@
 
 							if not abort then
 								'give an initial feedback in system output 
-								Session.Output("SOSI model validation 1.2 started. "&Now())
+								Session.Output("SOSI model validation 1.2.dev started. "&Now())
 								'Check model for script breaking structures
 								if scriptBreakingStructuresInModel(thePackage) then
 									Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
@@ -207,7 +207,9 @@
 								call findPackagesToBeReferenced()
 								call checkPackageDependency(thePackage)
 								call dependencyLoop(thePackage.Element)
-							  
+								
+								'check if there are packages with stereotype "applicationSchema"in package hierarchy upwards from start package
+								CheckParentPackageStereotype(thePackage)
                 'For /req/Uml/Profile:
 							  Set ProfileTypes = CreateObject("System.Collections.ArrayList")
 							  Set ExtensionTypes = CreateObject("System.Collections.ArrayList")
@@ -250,7 +252,7 @@
 			
 								end if 
 								'final report
-								Session.Output("-----Report for package ["&startPackageName&"]-----") 		
+								Session.Output("-----Report for package [«" &thePackage.Element.Stereotype& "» "&startPackageName&"]-----") 		
 								Session.Output("   Number of errors found: " & globalErrorCounter) 
 								if globalLogLevelIsWarning then
 									Session.Output("   Number of warnings found: " & globalWarningCounter)
@@ -3193,6 +3195,32 @@ sub CheckSubPackageStereotype(rootPackage)
 end sub
 '-------------------------------------------------------------END--------------------------------------------------------------------------------------------
 
+'Sub name: 		CheckParentPackageStereotype
+'Author: 		Magnus Karge
+'Date: 			20180822
+'Purpose: 		Check the stereotypes of all direct and indirect parent packages of the start package in the package hierarchy for occurrences 
+'				of stereotype "ApplicationSchema".  Only the start package shall have stereotype "ApplicationSchema". 
+'Parameters:	package  (a package with stereotype applicationSchema, this package is the package the validation shall be conducted on)
+' 
+sub CheckParentPackageStereotype(package)
+		
+	dim parentPackageID
+		parentPackageID = package.ParentID 
+	dim parentPackage as EA.Package
+	set parentPackage = Repository.GetPackageByID(parentPackageID)
+	'go recursively upwards in package hierarchy until finding a "model-package" or finding no package at all (meaning packageID = 0)
+	do while ((not parentPackageID = 0) and (not parentPackage.IsModel)) 
+		if UCase(parentPackage.Element.Stereotype)="APPLICATIONSCHEMA" then
+			Session.Output("Error: Package [«" &parentPackage.Element.Stereotype& "» " &parentPackage.Name& "]. Package with stereotype «ApplicationSchema» cannot contain subpackages with stereotype «ApplicationSchema». [/req/uml/integration]")
+			globalErrorCounter = globalErrorCounter + 1
+		end if
+		
+		parentPackageID = parentPackage.ParentID 'here the new parentPackageID is the ID of the package containing the parent package
+		set parentPackage = Repository.GetPackageByID(parentPackageID) 'setting the new parent package
+	loop
+end sub
+'-------------------------------------------------------------END--------------------------------------------------------------------------------------------
+
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
 ' Sub Name: FindInvalidElementsInPackage
 ' Author: Kent Jonsrud, Magnus Karge...
@@ -3228,7 +3256,7 @@ sub FindInvalidElementsInPackage(package)
 	end if
 
 	ClassAndPackageNames.Add UCase(package.Name)
-
+	
 	'check if the package name is written correctly according to krav/navning
 	checkElementName(package)
  			 
