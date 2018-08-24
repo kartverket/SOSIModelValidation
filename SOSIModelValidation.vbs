@@ -1665,14 +1665,14 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub Name: krav14 - inherit from same stereotype
+' Sub Name: checkInheritance - inherit from same stereotype
 ' Author: Tore Johnsen
 ' Date: 2016-08-22
 ' Purpose: Checks that there is no inheritance between classes with unequal stereotypes.
 '		/krav/14
 ' @param[in]: currentElement
 
-sub krav14(currentElement)
+sub checkInheritance(currentElement)
 
 	dim connectors as EA.Collection
 	set connectors = currentElement.Connectors
@@ -1815,13 +1815,13 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub Name: krav16-unikeNCnavn
+' Sub Name: checkUniqueNCnames
 ' Author: Kent Jonsrud
 ' Date: 2016-08-09
 ' Purpose: 
     '/krav/16
  
-sub krav16unikeNCnavn(theElement)
+sub checkUniqueNCnames(theElement)
 	
 	dim goodNames, lowerCameCase, badName, roleName
 	goodNames = true
@@ -1924,7 +1924,7 @@ sub krav16unikeNCnavn(theElement)
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(super, PropertyNames, inheritanceElementList)
+				if hopOutOfEndlessRecursion=0 then call checkInheritedUniqueNCnames(super, PropertyNames, inheritanceElementList)
 			end if
 		end if
 	next
@@ -1933,7 +1933,7 @@ end sub
 
 
 ' -----------------------------------------------------------START-------------------------------------------------------------------------------------------
-sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
+sub checkInheritedUniqueNCnames(theElement, PropertyNames, inheritanceElementList)
 	dim goodNames, lowerCameCase, badName, roleName
 	goodNames = true
 	lowerCameCase = true
@@ -2015,7 +2015,7 @@ sub krav16unikeNCnavnArvede(theElement, PropertyNames, inheritanceElementList)
 						globalErrorCounter = globalErrorCounter + 1
 					end if
 				next
-				if hopOutOfEndlessRecursion=0 then call krav16unikeNCnavnArvede(super, PropertyNames, inheritanceElementList)
+				if hopOutOfEndlessRecursion=0 then call checkInheritedUniqueNCnames(super, PropertyNames, inheritanceElementList)
 			end if
 		end if
 	next
@@ -2469,7 +2469,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav12
+' Sub name: checkDataTypeAssociation
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if a given dataType element's (element with stereotype DataType or of type DataType) associations are 
@@ -2480,7 +2480,7 @@ end sub
 '				theConnector (EA.Connector). The connector/association between theElement and theElementOnOppositeSide
 '				theElementOnOppositeSide (EA.Element). The classifier on the other side of the connector/association
  
-sub krav12(theElement, theConnector, theElementOnOppositeSide)
+sub checkDataTypeAssociation(theElement, theConnector, theElementOnOppositeSide)
 	dim currentElement AS EA.Element
 	set currentElement = theElement
 	dim elementOnOppositeSide AS EA.Element
@@ -2512,7 +2512,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav10
+' Sub name: checkMultiplicityOnNavigableAssociationEnds
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if the given association properties fulfill the requirements regarding
@@ -2525,7 +2525,7 @@ end sub
 '				targetEndName (CharacterString). role name on association's target end
 '				sourceEndCardinality (CharacterString). multiplicity on association's source end
 '				targetEndCardinality (CharacterString). multiplicity on association's target end
-sub krav10(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+sub checkMultiplicityOnNavigableAssociationEnds(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 	if sourceEndNavigable = "Navigable" and sourceEndCardinality = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Class [«"&theElement.Stereotype&"» "& theElement.Name &"] \ association role [" & sourceEndName & "] lacks multiplicity. [/krav/10]") 
 		globalErrorCounter = globalErrorCounter + 1 
@@ -2540,7 +2540,7 @@ end sub
 
 
 '------------------------------------------------------------START-------------------------------------------------------------------------------------------
-' Sub name: krav11
+' Sub name: checkRoleNamesOnNavigableAssociationEnds
 ' Author: Magnus Karge
 ' Date: 20170110 
 ' Purpose:  sub procedure to check if the given association has role names on navigable ends 
@@ -2552,7 +2552,7 @@ end sub
 '				sourceEndName (CharacterString). role name on association's source end
 '				targetEndName (CharacterString). role name on association's target end
 '				elementOnOppositeSide (EA.Element). The element on the opposite side of the association to check
-sub krav11(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+sub checkRoleNamesOnNavigableAssociationEnds(theElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 	if sourceEndNavigable = "Navigable" and sourceEndName = "" and currentConnector.Type <> "Dependency" then
 		Session.Output( "Error: Association between class [«"&theElement.Stereotype&"» "& theElement.Name &"] and class [«"&elementOnOppositeSide.Stereotype&"» "& elementOnOppositeSide.Name & "] lacks role name on navigable end on "& theElement.Name &"-side. [/krav/11]") 
 		globalErrorCounter = globalErrorCounter + 1 
@@ -3334,7 +3334,7 @@ sub FindInvalidElementsInPackage(package)
 		end if
 
 		' check if inherited stereotypes are all the same
-		Call krav14(currentElement)
+		Call checkInheritance(currentElement)
 		' check that no class inherits from a class named GM_Object or TM_Object
 		Call reqGeneralFeature(currentElement, currentElement)
 		' ---ALL CLASSIFIERS---
@@ -3348,7 +3348,7 @@ sub FindInvalidElementsInPackage(package)
 
 			ClassAndPackageNames.Add UCase(currentElement.Name)
 
-			call krav16unikeNCnavn(currentElement)
+			call checkUniqueNCnames(currentElement)
 		else
 			' ---OTHER ARTIFACTS--- Do their names also need to be tested for uniqueness? (need to be different?)
 			if currentElement.Type <> "Note" and currentElement.Type <> "Text" and currentElement.Type <> "Boundary" then
@@ -3586,17 +3586,17 @@ sub FindInvalidElementsInPackage(package)
 					call checkElementName(currentConnector)
 					
 					'check if elements on both sides of the association are classes with stereotype dataType or of element type DataType
-					call krav12(currentElement, currentConnector, elementOnOppositeSide)
+					call checkDataTypeAssociation(currentElement, currentConnector, elementOnOppositeSide)
 													
 					'check if there is a definition on navigable ends (navigable association roles) of the connector 
 					'Call the subfunction with currentConnector as parameter 
 					CheckDefinition(currentConnector) 
  																								 
 					'check if there is multiplicity on navigable ends (krav/10)
-					call krav10(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
+					call checkMultiplicityOnNavigableAssociationEnds(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, sourceEndCardinality, targetEndCardinality, currentConnector)
 					 
 					'check if there are role names on navigable ends  (krav/11)
-					call krav11(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
+					call checkRoleNamesOnNavigableAssociationEnds(currentElement, sourceEndNavigable, targetEndNavigable, sourceEndName, targetEndName, elementOnOppositeSide, currentConnector)
 																		 
 					'check if role names on connector ends start with lower case (regardless of navigability) (krav/navning)
 					call checkRoleNames(currentElement, sourceEndName, targetEndName, elementOnOppositeSide)
