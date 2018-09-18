@@ -191,7 +191,7 @@
 
 							if not abort then
 								'give an initial feedback in system output 
-								Session.Output("SOSI model validation 1.2.dev started. "&Now())
+								Session.Output("SOSI model validation 1.2.2 started. "&Now())
 								'Check model for script breaking structures
 								if scriptBreakingStructuresInModel(thePackage) then
 									Session.Output("Critical Errors: The errors listed above must be corrected before the script can validate the model.")
