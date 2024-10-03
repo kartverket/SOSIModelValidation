@@ -1,0 +1,37 @@
+# nonk8s
+apiVersion: "backstage.io/v1alpha1"
+kind: "Component"
+metadata:
+  name: "SOSIModelValidation"
+  tags:
+  - "private"
+spec:
+  type: "service"
+  lifecycle: "production"
+  owner: "standardisering"
+---
+apiVersion: "backstage.io/v1alpha1"
+kind: "Group"
+metadata:
+  name: "security_champion_SOSIModelValidation"
+  title: "Security Champion SOSIModelValidation"
+spec:
+  type: "security_champion"
+  parent: "it_security_champions"
+  members:
+  - "toreJohnsen"
+  children:
+  - "resource:SOSIModelValidation"
+---
+apiVersion: "backstage.io/v1alpha1"
+kind: "Resource"
+metadata:
+  name: "SOSIModelValidation"
+  links:
+  - url: "https://github.com/kartverket/SOSIModelValidation"
+    title: "SOSIModelValidation på GitHub"
+spec:
+  type: "repo"
+  owner: "security_champion_SOSIModelValidation"
+  dependencyOf:
+  - "component:SOSIModelValidation"
